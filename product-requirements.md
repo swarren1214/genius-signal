@@ -42,11 +42,11 @@ The Genius Product Dashboard is a web-based analytics and intelligence hub for t
 | Layer | Choice |
 |---|---|
 | Framework | Next.js (App Router, TypeScript) |
-| UI Library | React + shadcn/ui (Radix primitives + Tailwind CSS) |
+| UI Library | React + Global Payments Vega + Tailwind CSS |
 | Styling | Tailwind CSS with custom gradient theme tokens |
 | Icons | lucide-react |
 | Animation | Framer Motion |
-| Charts | Recharts or Tremor (built on shadcn/Tailwind) |
+| Charts | Recharts with Vega-aligned controls and tokens |
 | Data fetching | Next.js Server Components + Route Handlers, TanStack Query for client-side caching |
 | AI | OpenAI/Azure OpenAI (or Copilot-compatible LLM endpoint) via a server-side AI service layer |
 | Database | PostgreSQL (e.g., Supabase or Neon) for cached aggregated data, sentiment history, news cache |
@@ -167,7 +167,7 @@ Metrics for the dashboard product itself (not the restaurant business metrics it
 ## 7. UI/UX Design Direction
 
 - **Visual style**: modern gradient aesthetic — dark-mode-first with vibrant gradient accents (e.g., indigo → violet → magenta, or teal → blue) used on cards, chart accents, and hero sections; light mode as secondary supported theme.
-- **Components**: shadcn/ui as the base component library (cards, tabs, dialogs, dropdowns, charts wrappers), customized with gradient borders/backgrounds and glassmorphism (subtle blur + translucency) for elevated surfaces.
+- **Components**: Global Payments Vega as the base component library (cards, controls, dialogs, navigation, and inputs), with product-specific layout composition in Tailwind.
 - **Icons**: lucide-react throughout for consistency and tree-shakable bundle size.
 - **Motion**: Framer Motion for page transitions, card entrance animations (staggered fade/slide-in), animated sentiment gauges, number count-up on KPI cards, and micro-interactions on hover/click.
 - **Layout**: persistent left sidebar nav (collapsible), top bar with global search + refresh status + notifications, responsive grid of cards on each page.
@@ -177,7 +177,7 @@ Metrics for the dashboard product itself (not the restaurant business metrics it
 - **No data yet** (e.g., newly tracked brand with no sentiment history): show a friendly empty-state card with an explanation ("Sentiment data builds over the first 7 days of tracking") rather than a blank/broken chart.
 - **Source outage** (e.g., News API down): affected widgets show a "Data temporarily unavailable — last updated [timestamp]" badge instead of failing silently or showing stale data as if fresh.
 - **Partial data**: if only some sources for a sentiment score are available (e.g., news but not Reddit), display the score with a "partial data" indicator and list which sources are missing.
-- **Skeleton loading states** for all cards/charts using shadcn `Skeleton` components, matching final layout to avoid layout shift.
+- **Skeleton loading states** for all cards/charts using Vega-aligned loading patterns, matching final layout to avoid layout shift.
 - **AI generation failure**: if digest/Q&A generation fails, show a retry action rather than an empty response; never show a raw error/stack trace to end users.
 
 ### 7.2 Onboarding
@@ -261,7 +261,7 @@ Metrics for the dashboard product itself (not the restaurant business metrics it
 ## 13. Phased Implementation Plan
 
 ### Phase 0 — Foundation
-- Scaffold Next.js + TypeScript + Tailwind + shadcn/ui project.
+- Scaffold Next.js + TypeScript + Tailwind + Global Payments Vega project.
 - Set up design system: gradient theme tokens, base layout (sidebar/topbar), lucide icons, Framer Motion wrapper components.
 - Set up auth, RBAC roles, and basic settings page.
 

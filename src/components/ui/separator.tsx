@@ -1,19 +1,19 @@
 "use client"
 
-import { Separator as SeparatorPrimitive } from "@base-ui/react/separator"
+import { VegaDivider } from "@/components/vega-components"
 import { cn } from "cn"
 
 function Separator({
   className,
   orientation = "horizontal",
   ...props
-}: SeparatorPrimitive.Props) {
+}: Omit<React.ComponentProps<typeof VegaDivider>, "direction"> & { orientation?: "horizontal" | "vertical" }) {
   return (
-    <SeparatorPrimitive
+    <VegaDivider
       data-slot="separator"
-      orientation={orientation}
+      direction={orientation}
       className={cn(
-        "shrink-0 bg-border data-horizontal:h-px data-horizontal:w-full data-vertical:w-px data-vertical:self-stretch",
+        "shrink-0",
         className
       )}
       {...props}

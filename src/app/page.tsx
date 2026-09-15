@@ -25,14 +25,11 @@ export default async function OverviewPage() {
         title="Welcome back — here's what's happening"
         description="A single view of product performance and market context: Pendo usage, competitor news, and brand sentiment, with AI-generated insights layered on top."
         actions={
-          <Button
-            variant="secondary"
-            size="sm"
-            nativeButton={false}
-            render={<Link href="/insights" />}
-          >
-            View full digest <ArrowRight className="size-4" />
-          </Button>
+          <Link href="/insights">
+            <Button variant="secondary" size="sm">
+              View full digest <ArrowRight className="size-4" />
+            </Button>
+          </Link>
         }
       />
 
@@ -88,15 +85,11 @@ export default async function OverviewPage() {
                 </p>
               </div>
             ))}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full"
-              nativeButton={false}
-              render={<Link href="/news" />}
-            >
-              View all news <ArrowRight className="size-4" />
-            </Button>
+            <Link href="/news" className="block">
+              <Button variant="ghost" size="sm" className="w-full">
+                View all news <ArrowRight className="size-4" />
+              </Button>
+            </Link>
           </CardContent>
         </Card>
       </div>
