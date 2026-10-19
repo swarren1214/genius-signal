@@ -35,7 +35,11 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${dmSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+        >
           <TooltipProvider>
             <SidebarProvider>
               <AppSidebar />
@@ -45,7 +49,10 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   {children}
                   <footer className="flex flex-wrap items-center justify-between gap-3 pt-2 font-mono text-[9px] text-muted-foreground">
                     <span>GENIUS PRODUCT / RESTAURANT VERTICAL</span>
-                    <span>Retrieved sources · explicit source health · no synthetic metrics</span>
+                    <span>
+                      Retrieved sources · explicit source health · no synthetic
+                      metrics
+                    </span>
                   </footer>
                 </main>
               </SidebarInset>
@@ -56,4 +63,3 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     </html>
   );
 }
-

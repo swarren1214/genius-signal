@@ -1,5 +1,7 @@
 # Genius Product Dashboard — Product Requirements & Implementation Plan
 
+> Implementation status: the app now uses shadcn/Base UI, app-scoped Pendo events, real NewsAPI/RSS ingestion, SQLite persistence, and optional grounded OpenAI and Slack integrations. Seeded runtime data has been removed. The PostgreSQL, SSO/RBAC, distributed scheduling, and multi-source sentiment sections below remain production roadmap requirements, not claims about the current implementation. See README.md for current setup and limitations.
+
 ## 1. Overview
 
 The Genius Product Dashboard is a web-based analytics and intelligence hub for the **Global Payments Genius Product team, focused on the restaurant vertical**. It aggregates data from multiple sources — starting with Pendo product usage analytics, live market/news data, and competitor brand sentiment — and layers AI-driven insights on top, so the team has a single, real-time view of product performance and market context specific to restaurant POS/payments.

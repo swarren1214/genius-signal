@@ -13,5 +13,133 @@ export const dynamic = "force-dynamic";
 export default async function OverviewPage() {
   const { analytics, news, signals, ai } = await getOverviewData();
   const own = signals.find((signal) => signal.brand.isOwnBrand);
-  return <div className="space-y-5"><PageHero eyebrow="Genius Signal / live workspace" title="Welcome back. Find your next advantage." description="Retrieved application activity, market reporting and evidence-backed product intelligence." actions={<Link href="/settings" className="inline-flex items-center gap-1 text-xs text-primary">Manage sources <ArrowUpRight className="size-3" /></Link>} /><SourceStatus name="Pendo" health={analytics.health} /><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><KpiCard label="Weekly active visitors" value={analytics.weeklyActiveUsers} delta={analytics.weeklyChange} icon="users" note="Configured application · 7 completed UTC days" /><KpiCard label="Weekly active accounts" value={analytics.activeAccounts} icon="gauge" note="Observed nonempty account IDs" /><KpiCard label="Weekly events" value={analytics.totalEvents} icon="click" note="App-scoped Pendo events" /><KpiCard label="Retrieved market articles" value={news.fetchedAt ? news.articles.length : null} icon="newspaper" note="Tracked brands · last 30 days" /></div><div className="grid min-w-0 gap-5 lg:grid-cols-[1.4fr_1fr]"><Card className="shadow-none"><CardHeader className="flex flex-row flex-wrap justify-between gap-3"><div><CardTitle>Product pulse</CardTitle><p className="mt-1 text-xs text-muted-foreground">{analytics.appName} · app {analytics.appId || "not configured"}</p></div><Link href="/analytics" className="inline-flex items-center gap-1 text-xs text-primary">Product Analytics <ArrowUpRight className="size-3" /></Link></CardHeader><CardContent><SignalChart data={analytics.daily} /></CardContent></Card><DigestPanel digest={ai.digest} health={ai.health} /><Card className="shadow-none"><CardHeader className="flex flex-row items-center justify-between"><CardTitle>Latest Market News</CardTitle><Link href="/news" className="text-xs text-primary">Read all →</Link></CardHeader><CardContent className="space-y-4"><SourceStatus name={news.provider} health={news} />{news.articles.slice(0, 4).map((article) => <Link key={article.id} href={`/news?article=${article.id}`} className="block border-b border-border pb-3 last:border-0"><p className="font-mono text-[9px] text-muted-foreground">{article.source} · {article.publishedAt.slice(0, 10)}</p><h3 className="mt-1 text-xs font-medium leading-5">{article.title}</h3></Link>)}{!news.articles.length && <p className="py-6 text-xs text-muted-foreground">No real articles have been retrieved for the current watchlist.</p>}</CardContent></Card><Card className="shadow-none"><CardHeader><CardTitle>Own-brand news tone</CardTitle></CardHeader><CardContent className="space-y-4"><div className="flex items-center justify-between gap-4"><div><h3 className="text-sm">{own?.brand.name ?? "No own brand configured"}</h3><p className="mt-2 text-xs text-muted-foreground">{own?.articles.length ?? 0} retrieved articles</p></div><span className="text-4xl font-normal tabular-nums">{own?.score ?? "—"}</span></div><p className="text-xs leading-5 text-muted-foreground">{own?.score === null || !own ? "There is not enough retrieved coverage to calculate a score." : "Calculated from the lexical tone of retrieved news. This is not customer NPS or a blend of review and social sources."}</p><Link href="/sentiment" className="inline-flex items-center gap-1 text-xs text-primary">Inspect sources and methodology <ArrowUpRight className="size-3" /></Link></CardContent></Card></div></div>;
+  return (
+    <div className="space-y-5">
+      <PageHero
+        eyebrow="Genius Signal / live workspace"
+        title="Welcome back. Find your next advantage."
+        description="Retrieved application activity, market reporting and evidence-backed product intelligence."
+        actions={
+          <Link
+            href="/settings"
+            className="inline-flex items-center gap-1 text-xs text-primary"
+          >
+            Manage sources <ArrowUpRight className="size-3" />
+          </Link>
+        }
+      />
+      <SourceStatus name="Pendo" health={analytics.health} />
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        <KpiCard
+          label="Weekly active visitors"
+          value={analytics.weeklyActiveUsers}
+          delta={analytics.weeklyChange}
+          icon="users"
+          note="Configured application · 7 Pendo reporting days"
+        />
+        <KpiCard
+          label="Weekly active accounts"
+          value={analytics.activeAccounts}
+          icon="gauge"
+          note="Observed nonempty account IDs"
+        />
+        <KpiCard
+          label="Weekly events"
+          value={analytics.totalEvents}
+          icon="click"
+          note="App-scoped Pendo events"
+        />
+        <KpiCard
+          label="Retrieved market articles"
+          value={news.fetchedAt ? news.articles.length : null}
+          icon="newspaper"
+          note="Tracked brands · last 30 days"
+        />
+      </div>
+      <div className="grid min-w-0 gap-5 lg:grid-cols-[1.4fr_1fr]">
+        <Card className="shadow-none">
+          <CardHeader className="flex flex-row flex-wrap justify-between gap-3">
+            <div>
+              <CardTitle>Product pulse</CardTitle>
+              <p className="mt-1 text-xs text-muted-foreground">
+                {analytics.appName} · app {analytics.appId || "not configured"}
+              </p>
+            </div>
+            <Link
+              href="/analytics"
+              className="inline-flex items-center gap-1 text-xs text-primary"
+            >
+              Product Analytics <ArrowUpRight className="size-3" />
+            </Link>
+          </CardHeader>
+          <CardContent>
+            <SignalChart data={analytics.daily} />
+          </CardContent>
+        </Card>
+        <DigestPanel digest={ai.digest} health={ai.health} />
+        <Card className="shadow-none">
+          <CardHeader className="flex flex-row items-center justify-between">
+            <CardTitle>Latest Market News</CardTitle>
+            <Link href="/news" className="text-xs text-primary">
+              Read all →
+            </Link>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <SourceStatus name={news.provider} health={news} />
+            {news.articles.slice(0, 4).map((article) => (
+              <Link
+                key={article.id}
+                href={`/news?article=${article.id}`}
+                className="block border-b border-border pb-3 last:border-0"
+              >
+                <p className="font-mono text-[9px] text-muted-foreground">
+                  {article.source} · {article.publishedAt.slice(0, 10)}
+                </p>
+                <h3 className="mt-1 text-xs font-medium leading-5">
+                  {article.title}
+                </h3>
+              </Link>
+            ))}
+            {!news.articles.length && (
+              <p className="py-6 text-xs text-muted-foreground">
+                No real articles have been retrieved for the current watchlist.
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="shadow-none">
+          <CardHeader>
+            <CardTitle>Own-brand news tone</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <h3 className="text-sm">
+                  {own?.brand.name ?? "No own brand configured"}
+                </h3>
+                <p className="mt-2 text-xs text-muted-foreground">
+                  {own?.articles.length ?? 0} retrieved articles
+                </p>
+              </div>
+              <span className="text-4xl font-normal tabular-nums">
+                {own?.score ?? "—"}
+              </span>
+            </div>
+            <p className="text-xs leading-5 text-muted-foreground">
+              {own?.score === null || !own
+                ? "There is not enough retrieved coverage to calculate a score."
+                : "Calculated from the lexical tone of retrieved news. This is not customer NPS or a blend of review and social sources."}
+            </p>
+            <Link
+              href="/sentiment"
+              className="inline-flex items-center gap-1 text-xs text-primary"
+            >
+              Inspect sources and methodology{" "}
+              <ArrowUpRight className="size-3" />
+            </Link>
+          </CardContent>
+        </Card>
+      </div>
+    </div>
+  );
 }

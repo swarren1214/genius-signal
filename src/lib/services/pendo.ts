@@ -7,7 +7,10 @@ const PENDO_BASE_URL = "https://app.pendo.io/api/v1";
  * Requires PENDO_API_KEY (Integration Key) in the environment; PENDO_APP_ID is optional and scopes
  * queries to a single application when set.
  */
-export async function pendoFetch<T>(path: string, init?: RequestInit): Promise<T> {
+export async function pendoFetch<T>(
+  path: string,
+  init?: RequestInit,
+): Promise<T> {
   if (!isPendoConfigured) {
     throw new Error("Pendo is not configured: missing PENDO_API_KEY");
   }
@@ -32,7 +35,10 @@ export async function pendoFetch<T>(path: string, init?: RequestInit): Promise<T
   return res.json() as Promise<T>;
 }
 
-export async function pendoAggregate<T>(pipeline: unknown[], refresh = false): Promise<T[]> {
+export async function pendoAggregate<T>(
+  pipeline: unknown[],
+  refresh = false,
+): Promise<T[]> {
   const data = await pendoFetch<{ results: T[] }>("/aggregation", {
     method: "POST",
     ...(refresh ? { cache: "no-store" as const } : {}),
@@ -43,5 +49,3 @@ export async function pendoAggregate<T>(pipeline: unknown[], refresh = false): P
   });
   return data.results ?? [];
 }
-
-

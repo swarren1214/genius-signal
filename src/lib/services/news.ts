@@ -70,7 +70,11 @@ interface NewsApiResponse {
 function matchBrands(text: string): string[] {
   const lower = text.toLowerCase();
   return getBrands()
-    .filter((b) => (b.newsSearchTerms ?? [b.name]).some((t) => lower.includes(t.toLowerCase())))
+    .filter((b) =>
+      (b.newsSearchTerms ?? [b.name]).some((t) =>
+        lower.includes(t.toLowerCase()),
+      ),
+    )
     .map((b) => b.id);
 }
 
@@ -105,17 +109,22 @@ function isRelevantArticle(text: string): boolean {
 
 function guessTopic(text: string): string {
   const lower = text.toLowerCase();
-  if (/outage|down for|service disruption|breach/.test(lower)) return "Outage/Incident";
-  if (/raises?\s|funding|valuation|acquisition|acquires?\b/.test(lower)) return "Funding";
+  if (/outage|down for|service disruption|breach/.test(lower))
+    return "Outage/Incident";
+  if (/raises?\s|funding|valuation|acquisition|acquires?\b/.test(lower))
+    return "Funding";
   if (/partners?|partnership|integrat/.test(lower)) return "Partnership";
-  if (/launch|unveils?|announces? new|rolls? out/.test(lower)) return "Product Launch";
-  if (/pricing|fee|price increase|subscription cost/.test(lower)) return "Pricing";
+  if (/launch|unveils?|announces? new|rolls? out/.test(lower))
+    return "Product Launch";
+  if (/pricing|fee|price increase|subscription cost/.test(lower))
+    return "Pricing";
   return "General";
 }
 
 export function classifySentiment(text: string) {
   const result = new Sentiment().analyze(text);
-  const label: NewsArticle["sentiment"] = result.score > 0 ? "positive" : result.score < 0 ? "negative" : "neutral";
+  const label: NewsArticle["sentiment"] =
+    result.score > 0 ? "positive" : result.score < 0 ? "negative" : "neutral";
   return { label, score: result.score };
 }
 
@@ -156,44 +165,74 @@ function buildQuery(): string {
  * Fetches recent news for tracked brands + restaurant-vertical keywords from NewsAPI.org.
  * Server-only — requires NEWS_API_KEY. Falls back should be handled by the caller.
  */
-export async function fetchRestaurantNews(pageSize = 100, refresh = false): Promise<{ articles: NewsArticle[]; provider: string }> {
-  if (!getBrands().length) return { articles: [], provider: "No tracked brands" };
+export async function fetchRestaurantNews(
+  pageSize = 100,
+  refresh = false,
+): Promise<{ articles: NewsArticle[]; provider: string }> {
+  if (!getBrands().length)
+    return { articles: [], provider: "No tracked brands" };
   if (isNewsConfigured) {
     try {
+      const url = new URL(`${NEWS_API_BASE_URL}/everything`);
+      url.searchParams.set("q", buildQuery());
+      url.searchParams.set("searchIn", "title,description");
+      url.searchParams.set("domains", DOMAIN_ALLOWLIST.join(","));
+      url.searchParams.set("sortBy", "publishedAt");
+      url.searchParams.set("language", "en");
+      url.searchParams.set("pageSize", String(pageSize));
 
-  const url = new URL(`${NEWS_API_BASE_URL}/everything`);
-  url.searchParams.set("q", buildQuery());
-  url.searchParams.set("searchIn", "title,description");
-  url.searchParams.set("domains", DOMAIN_ALLOWLIST.join(","));
-  url.searchParams.set("sortBy", "publishedAt");
-  url.searchParams.set("language", "en");
-  url.searchParams.set("pageSize", String(pageSize));
+      const res = await fetch(url, {
+        headers: { "X-Api-Key": newsConfig.apiKey },
+        // Matches the PRD's 15-30 minute refresh cadence for the news feed.
+        ...(refresh
+          ? { cache: "no-store" as const }
+          : { next: { revalidate: 900 } }),
+        signal: AbortSignal.timeout(15000),
+      });
 
-  const res = await fetch(url, {
-    headers: { "X-Api-Key": newsConfig.apiKey },
-    // Matches the PRD's 15-30 minute refresh cadence for the news feed.
-    ...(refresh ? { cache: "no-store" as const } : { next: { revalidate: 900 } }),
-    signal: AbortSignal.timeout(15000),
-  });
+      if (!res.ok) {
+        const body = await res.text().catch(() => "");
+        throw new Error(`News API error ${res.status}: ${body.slice(0, 300)}`);
+      }
 
-  if (!res.ok) {
-    const body = await res.text().catch(() => "");
-    throw new Error(`News API error ${res.status}: ${body.slice(0, 300)}`);
-  }
+      const data = (await res.json()) as NewsApiResponse;
 
-  const data = (await res.json()) as NewsApiResponse;
-
-  const articles = data.articles
-    .filter((a) => a.title && a.title !== "[Removed]")
-    .filter((article) => /^https?:\/\//i.test(article.url) && Number.isFinite(new Date(article.publishedAt).getTime()))
-    .map((article) => normalizeArticle({ title: article.title, snippet: article.description ?? "", url: article.url, source: article.source?.name ?? "Unknown", publishedAt: new Date(article.publishedAt).toISOString() }))
-    .filter((article) => isRelevantArticle(`${article.title} ${article.snippet}`));
-  if (articles.length) return { articles, provider: "NewsAPI" };
+      const articles = data.articles
+        .filter((a) => a.title && a.title !== "[Removed]")
+        .filter(
+          (article) =>
+            /^https?:\/\//i.test(article.url) &&
+            Number.isFinite(new Date(article.publishedAt).getTime()),
+        )
+        .map((article) =>
+          normalizeArticle({
+            title: article.title,
+            snippet: article.description ?? "",
+            url: article.url,
+            source: article.source?.name ?? "Unknown",
+            publishedAt: new Date(article.publishedAt).toISOString(),
+          }),
+        )
+        .filter((article) =>
+          isRelevantArticle(`${article.title} ${article.snippet}`),
+        );
+      if (articles.length) return { articles, provider: "NewsAPI" };
     } catch (error) {
-      console.error("NewsAPI ingestion failed; trying public RSS:", error instanceof Error ? error.message.slice(0, 180) : "Request failed");
+      console.error(
+        "NewsAPI ingestion failed; trying public RSS:",
+        error instanceof Error ? error.message.slice(0, 180) : "Request failed",
+      );
     }
   }
-  const articles = (await fetchRestaurantRss(refresh)).filter((article) => isRelevantArticle(`${article.title} ${article.snippet}`)).map(normalizeArticle);
-  return { articles: [...new Map(articles.map((article) => [article.id, article])).values()], provider: "Google News RSS" };
+  const articles = (await fetchRestaurantRss(refresh))
+    .filter((article) =>
+      isRelevantArticle(`${article.title} ${article.snippet}`),
+    )
+    .map(normalizeArticle);
+  return {
+    articles: [
+      ...new Map(articles.map((article) => [article.id, article])).values(),
+    ],
+    provider: "Google News RSS",
+  };
 }
-

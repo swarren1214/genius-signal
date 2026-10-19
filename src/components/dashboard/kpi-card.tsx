@@ -38,10 +38,18 @@ interface KpiCardProps {
   accent?: "brand" | "positive" | "negative";
 }
 
-function CountUp({ value, suffix }: Readonly<{ value: number | null; suffix?: string }>) {
+function CountUp({
+  value,
+  suffix,
+}: Readonly<{ value: number | null; suffix?: string }>) {
   return (
     <span className="tabular-nums">
-      {value === null ? "Unavailable" : value.toLocaleString(undefined, { minimumFractionDigits: value % 1 ? 1 : 0, maximumFractionDigits: value % 1 ? 1 : 0 })}
+      {value === null
+        ? "Unavailable"
+        : value.toLocaleString(undefined, {
+            minimumFractionDigits: value % 1 ? 1 : 0,
+            maximumFractionDigits: value % 1 ? 1 : 0,
+          })}
       {value !== null && suffix}
     </span>
   );
@@ -60,7 +68,12 @@ export function KpiCard({
   const Icon = iconRegistry[icon];
 
   return (
-    <Card className={cn("glass-panel relative overflow-hidden py-0 shadow-none", accent === "negative" && "border-destructive/30")}>
+    <Card
+      className={cn(
+        "glass-panel relative overflow-hidden py-0 shadow-none",
+        accent === "negative" && "border-destructive/30",
+      )}
+    >
       <CardContent className="p-5">
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">{label}</p>
@@ -74,7 +87,9 @@ export function KpiCard({
             <p
               className={cn(
                 "font-mono text-[11px]",
-                isPositive ? "text-emerald-600 dark:text-emerald-300/80" : "text-rose-600 dark:text-rose-300/80"
+                isPositive
+                  ? "text-emerald-600 dark:text-emerald-300/80"
+                  : "text-rose-600 dark:text-rose-300/80",
               )}
             >
               {isPositive ? "+" : ""}
