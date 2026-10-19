@@ -2,319 +2,34 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowUpRight, Bookmark, CalendarDays, Download } from "lucide-react";
-import { SignalChart } from "@/components/dashboard/signal-chart";
+import { useRouter } from "next/navigation";
+import { Bookmark, Download, RefreshCw } from "lucide-react";
 import { PageHero } from "@/components/dashboard/page-hero";
 import { KpiCard } from "@/components/dashboard/kpi-card";
-import { Button } from "@/components/ui/button";
+import { SignalChart } from "@/components/dashboard/signal-chart";
+import { SourceStatus } from "@/components/dashboard/source-status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import type { AnalyticsResult } from "@/lib/data/analytics";
+import { Button } from "@/components/ui/button";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { postJson } from "@/lib/client-api";
+import type { AnalyticsSnapshot } from "@/lib/types";
 
-const featureRows = [
-  {
-    feature: "Tableside Pay",
-    area: "Payments",
-    adoption: 47,
-    change: 12,
-    uses: 3.8,
-  },
-  {
-    feature: "Order management",
-    area: "Core workflow",
-    adoption: 84,
-    change: 2,
-    uses: 18.2,
-  },
-  {
-    feature: "Kitchen display",
-    area: "Operations",
-    adoption: 57,
-    change: 5,
-    uses: 12.4,
-  },
-  {
-    feature: "Loyalty & rewards",
-    area: "Retention",
-    adoption: 31,
-    change: -3,
-    uses: 2.1,
-  },
-  {
-    feature: "Menu management",
-    area: "Operations",
-    adoption: 68,
-    change: 1,
-    uses: 4.6,
-  },
-];
-
-export function AnalyticsWorkspace({
-  data,
-}: Readonly<{ data: AnalyticsResult }>) {
+export function AnalyticsWorkspace({ data }: Readonly<{ data: AnalyticsSnapshot }>) {
+  const router = useRouter();
   const [filter, setFilter] = useState("all");
-  const [saved, setSaved] = useState(false);
-  const rows = featureRows.filter(
-    (row) =>
-      filter === "all" ||
-      (filter === "opportunity" ? row.adoption < 50 : row.adoption >= 50),
-  );
+  const [pending, setPending] = useState(false);
+  const [status, setStatus] = useState("");
+  const rows = data.features.filter((row) => filter === "all" || (filter === "opportunity" ? row.adoption !== null && row.adoption < 50 : row.adoption !== null && row.adoption >= 50));
+  const available = data.weeklyActiveUsers !== null;
+  async function run(action: "refresh" | "save-report") {
+    setPending(true); setStatus("");
+    try { await postJson("/api/workspace", action === "refresh" ? { action, source: "pendo" } : { action, filter }); setStatus(action === "refresh" ? "Refresh completed." : "Snapshot saved to the workspace database."); router.refresh(); } catch (error) { setStatus(error instanceof Error ? error.message : "Request failed."); } finally { setPending(false); }
+  }
   function exportCsv() {
-    const csv = [
-      "Feature,Product area,Adoption (%),Weekly change (%),Uses per user,Data source",
-      ...rows.map(
-        (row) =>
-          `${row.feature},${row.area},${row.adoption},${row.change},${row.uses},Illustrative demo data`,
-      ),
-    ].join("\n");
-    const url = URL.createObjectURL(
-      new Blob([csv], { type: "text/csv;charset=utf-8;" }),
-    );
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "genius-feature-performance-demo.csv";
-    link.click();
-    URL.revokeObjectURL(url);
+    const escape = (value: string | number) => `"${String(value).replaceAll('"', '""')}"`;
+    const csv = ["Feature ID,Feature,Visitors,Events,App visitor adoption (%),App ID,Period end", ...rows.map((row) => [row.id, row.name, row.visitors, row.events, row.adoption ?? "", data.appId, data.endDate].map(escape).join(","))].join("\n");
+    const url = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8;" }));
+    const link = document.createElement("a"); link.href = url; link.download = `pendo-features-${data.endDate.slice(0, 10)}.csv`; link.click(); URL.revokeObjectURL(url);
   }
-  function saveReport() {
-    try {
-      localStorage.setItem(
-        "signal-saved-report",
-        JSON.stringify({
-          filter,
-          period: "Sept 1–8, 2026",
-          savedAt: new Date().toISOString(),
-        }),
-      );
-      setSaved(true);
-    } catch {
-      setSaved(false);
-    }
-  }
-
-  return (
-    <div className="space-y-5">
-      <PageHero
-        eyebrow="Product pulse / Sept 1–8, 2026"
-        title="Understand what moves your product."
-        description="Follow usage, uncover adoption gaps and focus on the workflows that matter."
-        actions={
-          <Button variant="secondary" size="sm" onClick={saveReport}>
-            <Bookmark className="size-3.5" />
-            {saved ? "Report saved" : "Save report"}
-          </Button>
-        }
-      />
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex flex-wrap items-center gap-2">
-          <span className="inline-flex h-8 items-center gap-2 rounded-md border border-border bg-card px-3 text-xs">
-            <CalendarDays className="size-3.5 text-muted-foreground" />
-            Sept 1–8, 2026
-          </span>
-          <span className="text-xs text-muted-foreground">
-            All restaurant locations
-          </span>
-        </div>
-        <span className="font-mono text-[9px] text-muted-foreground">
-          {data.isLive ? "PENDO CONNECTED · LIVE WAU" : "SAMPLE ANALYTICS"} /
-          DEMO TRENDS
-        </span>
-      </div>
-      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
-        <KpiCard
-          label="Weekly active users"
-          value={data.weeklyActiveUsers}
-          delta={0}
-          icon="users"
-          note={data.isLive ? "Current Pendo metric" : "Sample metric"}
-        />
-        <KpiCard
-          label="Feature adoption"
-          value={47}
-          suffix="%"
-          delta={12}
-          icon="click"
-          note="Tableside Pay · reference week"
-        />
-        <KpiCard
-          label="Sessions / active user"
-          value={5.8}
-          delta={6}
-          icon="trending-up"
-          note="Illustrative demo metric"
-        />
-        <KpiCard
-          label="4-week retention"
-          value={82.4}
-          suffix="%"
-          delta={2.1}
-          icon="gauge"
-          note="Illustrative demo metric"
-        />
-      </div>
-      <div className="grid min-w-0 gap-5 lg:grid-cols-[1.65fr_1fr]">
-        <Card className="shadow-none">
-          <CardHeader>
-            <CardTitle>Engagement through the week</CardTitle>
-            <p className="text-xs text-muted-foreground">
-              Daily active users · unique users per day
-            </p>
-          </CardHeader>
-          <CardContent>
-            <SignalChart kind="engagement" />
-          </CardContent>
-        </Card>
-        <Card className="shadow-none">
-          <CardHeader className="flex flex-row items-center justify-between">
-            <CardTitle>Tableside Pay adoption</CardTitle>
-            <Link
-              href="/insights"
-              aria-label="Investigate Tableside Pay adoption"
-            >
-              <ArrowUpRight className="size-4 text-primary" />
-            </Link>
-          </CardHeader>
-          <CardContent className="space-y-5">
-            <div className="flex items-baseline gap-3">
-              <span className="text-4xl font-normal">47%</span>
-              <span className="text-[10px] text-emerald-600 dark:text-emerald-300/80">
-                +12% vs last week
-              </span>
-            </div>
-            {[
-              { label: "Eligible locations", count: "10,000", percent: 100 },
-              { label: "Enabled Tableside Pay", count: "6,200", percent: 62 },
-              { label: "Completed first payment", count: "4,700", percent: 47 },
-            ].map((step) => (
-              <div key={step.label}>
-                <div className="mb-2 flex justify-between gap-3 text-[11px] text-muted-foreground">
-                  <span>{step.label}</span>
-                  <span className="font-mono">
-                    {step.count} · {step.percent}%
-                  </span>
-                </div>
-                <div className="h-1.5 rounded-full bg-muted">
-                  <div
-                    className="h-full rounded-full bg-chart-1"
-                    style={{
-                      width: `${step.percent}%`,
-                      opacity: step.percent === 47 ? 1 : 0.5,
-                    }}
-                  />
-                </div>
-              </div>
-            ))}
-            <p className="text-xs leading-5 text-muted-foreground">
-              Largest opportunity: 1,500 enabled locations have not completed a
-              first payment.
-            </p>
-            <p className="text-[10px] text-muted-foreground">
-              Illustrative location funnel · denominator: eligible locations
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-      <Card className="shadow-none">
-        <CardHeader className="flex flex-row flex-wrap items-start justify-between gap-4">
-          <div>
-            <CardTitle>Feature performance</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">
-              Find the workflows driving engagement, and where to look next.
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <Select
-              items={[
-                { value: "all", label: "All features" },
-                { value: "opportunity", label: "Adoption opportunities" },
-                { value: "healthy", label: "High adoption" },
-              ]}
-              value={filter}
-              onValueChange={(value) => setFilter(value ?? "all")}
-            >
-              <SelectTrigger aria-label="Filter features">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All features</SelectItem>
-                <SelectItem value="opportunity">
-                  Adoption opportunities
-                </SelectItem>
-                <SelectItem value="healthy">High adoption</SelectItem>
-              </SelectContent>
-            </Select>
-            <Button variant="secondary" onClick={exportCsv}>
-              <Download className="size-3.5" />
-              Export CSV
-            </Button>
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="max-w-full overflow-x-auto">
-            <table className="w-full min-w-[640px] text-left text-xs">
-              <thead className="bg-muted/60 font-mono text-[9px] uppercase text-muted-foreground">
-                <tr>
-                  {[
-                    "Feature",
-                    "Product area",
-                    "Adoption",
-                    "Weekly change",
-                    "Uses / user",
-                    "Signal",
-                  ].map((heading) => (
-                    <th key={heading} className="px-3 py-2 font-normal">
-                      {heading}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {rows.map((row) => (
-                  <tr
-                    key={row.feature}
-                    className="border-b border-border first:bg-accent/20"
-                  >
-                    <td className="px-3 py-4 font-medium">{row.feature}</td>
-                    <td className="px-3 text-muted-foreground">{row.area}</td>
-                    <td className="px-3 tabular-nums">{row.adoption}%</td>
-                    <td
-                      className={`px-3 tabular-nums ${row.change >= 0 ? "text-emerald-600 dark:text-emerald-300/80" : "text-rose-500"}`}
-                    >
-                      {row.change > 0 ? "+" : ""}
-                      {row.change}%
-                    </td>
-                    <td className="px-3 tabular-nums">{row.uses}</td>
-                    <td className="px-3">
-                      {row.adoption < 50 ? (
-                        <Link href="/insights" className="text-primary">
-                          Investigate activation →
-                        </Link>
-                      ) : (
-                        <span className="text-muted-foreground">Healthy</span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-          <p className="mt-4 text-[10px] text-muted-foreground">
-            Demo feature-level data · weekly change is relative, not percentage
-            points.
-          </p>
-          <p className="mt-2 text-[10px] text-muted-foreground">
-            {data.isLive ? "Current Pendo metrics" : "Sample metrics"}:{" "}
-            {data.dailyActiveUsers.toLocaleString()} daily active users ·{" "}
-            {data.totalVisitors.toLocaleString()} tracked visitors.
-          </p>
-        </CardContent>
-      </Card>
-    </div>
-  );
+  return <div className="space-y-5"><PageHero eyebrow={`Pendo / ${data.appName}`} title="Understand what moves your product." description="Application-scoped usage from completed UTC days, with source health and real feature activity." actions={<div className="flex flex-wrap gap-2"><Button size="sm" variant="secondary" disabled={pending} onClick={() => run("refresh")}><RefreshCw className={`size-3.5 ${pending ? "animate-spin motion-reduce:animate-none" : ""}`} />Refresh</Button><Button size="sm" variant="secondary" disabled={pending || !available} onClick={() => run("save-report")}><Bookmark className="size-3.5" />Save snapshot</Button></div>} /><SourceStatus name="Pendo" health={data.health} /><p className="font-mono text-[10px] text-muted-foreground">APP {data.appId || "NOT SET"} · {data.startDate.slice(0, 10)} – {data.endDate.slice(0, 10)}</p><div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4"><KpiCard label="Weekly active visitors" value={data.weeklyActiveUsers} delta={data.weeklyChange} icon="users" note="Distinct visitors · last 7 completed days" /><KpiCard label="Daily active visitors" value={data.dailyActiveUsers} icon="click" note="Last completed UTC day" /><KpiCard label="Weekly active accounts" value={data.activeAccounts} icon="gauge" note="Distinct nonempty account IDs" /><KpiCard label="Weekly events" value={data.totalEvents} icon="trending-up" note="Observed events · last 7 completed days" /></div><Card className="shadow-none"><CardHeader><CardTitle>Daily application activity</CardTitle><p className="text-xs text-muted-foreground">Fourteen completed days of app-scoped events</p></CardHeader><CardContent><SignalChart data={data.daily} /></CardContent></Card><Card className="shadow-none"><CardHeader className="flex flex-row flex-wrap items-start justify-between gap-3"><div><CardTitle>Tagged feature performance</CardTitle><p className="mt-1 text-xs text-muted-foreground">Top features by distinct users in the last 7 completed days.</p></div><div className="flex flex-wrap gap-2"><Select items={[{ value: "all", label: "All features" }, { value: "opportunity", label: "Adoption below 50%" }, { value: "healthy", label: "Adoption 50% or higher" }]} value={filter} onValueChange={(value) => setFilter(value ?? "all")}><SelectTrigger aria-label="Filter features"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="all">All features</SelectItem><SelectItem value="opportunity">Adoption below 50%</SelectItem><SelectItem value="healthy">Adoption 50% or higher</SelectItem></SelectContent></Select><Button variant="secondary" disabled={!rows.length} onClick={exportCsv}><Download className="size-3.5" />Export CSV</Button></div></CardHeader><CardContent>{data.featureError ? <p className="text-xs text-amber-600 dark:text-amber-200">{data.featureError}</p> : rows.length ? <div className="max-w-full overflow-x-auto"><table className="w-full min-w-160 text-left text-xs"><thead className="bg-muted/50 font-mono text-[9px] uppercase text-muted-foreground"><tr>{["Feature", "Distinct visitors", "Events", "App adoption", "Source ID"].map((heading) => <th key={heading} className="px-3 py-3 font-normal">{heading}</th>)}</tr></thead><tbody>{rows.map((row) => <tr key={row.id} className="border-b border-border"><td className="px-3 py-4 font-medium">{row.name}</td><td className="px-3 tabular-nums">{row.visitors.toLocaleString()}</td><td className="px-3 tabular-nums">{row.events.toLocaleString()}</td><td className="px-3 tabular-nums">{row.adoption === null ? "Unavailable" : `${row.adoption}%`}</td><td className="px-3 font-mono text-[9px] text-muted-foreground">{row.id}</td></tr>)}</tbody></table></div> : <p className="py-8 text-xs text-muted-foreground">No retrieved features match this filter.</p>}<p className="mt-4 text-[10px] leading-5 text-muted-foreground">Adoption is feature visitors divided by distinct active application visitors, not eligible restaurant locations. No activation funnel, sessions, or retention are inferred.</p><Link href="/settings" className="mt-3 inline-block text-xs text-primary">Saved snapshots and source settings →</Link></CardContent></Card>{status && <output className="block text-xs text-muted-foreground">{status}</output>}</div>;
 }

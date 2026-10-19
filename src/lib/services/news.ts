@@ -1,6 +1,9 @@
 import { newsConfig, isNewsConfigured } from "@/lib/config";
-import type { NewsArticle } from "@/lib/mock-data";
-import { trackedBrands } from "@/lib/mock-data";
+import type { NewsArticle } from "@/lib/types";
+import { getBrands } from "@/lib/database";
+import { createHash } from "node:crypto";
+import Sentiment from "sentiment";
+import { fetchRestaurantRss, type FeedItem } from "@/lib/services/rss";
 
 const NEWS_API_BASE_URL = "https://newsapi.org/v2";
 
@@ -66,7 +69,7 @@ interface NewsApiResponse {
 
 function matchBrands(text: string): string[] {
   const lower = text.toLowerCase();
-  return trackedBrands
+  return getBrands()
     .filter((b) => (b.newsSearchTerms ?? [b.name]).some((t) => lower.includes(t.toLowerCase())))
     .map((b) => b.id);
 }
@@ -110,12 +113,25 @@ function guessTopic(text: string): string {
   return "General";
 }
 
-function guessSentiment(text: string): NewsArticle["sentiment"] {
-  const negative = /outage|lawsuit|breach|complaint|fee increase|down|fail/i;
-  const positive = /launch|partnership|award|growth|expands|raises funding/i;
-  if (negative.test(text)) return "negative";
-  if (positive.test(text)) return "positive";
-  return "neutral";
+export function classifySentiment(text: string) {
+  const result = new Sentiment().analyze(text);
+  const label: NewsArticle["sentiment"] = result.score > 0 ? "positive" : result.score < 0 ? "negative" : "neutral";
+  return { label, score: result.score };
+}
+
+function normalizeArticle(item: FeedItem): NewsArticle {
+  const text = `${item.title} ${item.snippet}`;
+  const sentiment = classifySentiment(text);
+  return {
+    id: createHash("sha256").update(item.url).digest("hex").slice(0, 24),
+    ...item,
+    fetchedAt: new Date().toISOString(),
+    brands: matchBrands(text),
+    topic: guessTopic(text),
+    sentiment: sentiment.label,
+    sentimentScore: sentiment.score,
+    whyItMatters: "",
+  };
 }
 
 /** Builds a compact NewsAPI query that stays under the API's length limit while focusing on
@@ -125,7 +141,7 @@ function guessSentiment(text: string): NewsArticle["sentiment"] {
 function buildQuery(): string {
   const quote = (term: string) => (term.includes(" ") ? `"${term}"` : term);
 
-  const primaryBrandTerms = trackedBrands
+  const primaryBrandTerms = getBrands()
     .map((brand) => (brand.newsSearchTerms ?? [brand.name])[0])
     .filter(Boolean)
     .map(quote);
@@ -140,10 +156,10 @@ function buildQuery(): string {
  * Fetches recent news for tracked brands + restaurant-vertical keywords from NewsAPI.org.
  * Server-only — requires NEWS_API_KEY. Falls back should be handled by the caller.
  */
-export async function fetchRestaurantNews(pageSize = 20): Promise<NewsArticle[]> {
-  if (!isNewsConfigured) {
-    throw new Error("News API is not configured: missing NEWS_API_KEY");
-  }
+export async function fetchRestaurantNews(pageSize = 100, refresh = false): Promise<{ articles: NewsArticle[]; provider: string }> {
+  if (!getBrands().length) return { articles: [], provider: "No tracked brands" };
+  if (isNewsConfigured) {
+    try {
 
   const url = new URL(`${NEWS_API_BASE_URL}/everything`);
   url.searchParams.set("q", buildQuery());
@@ -156,7 +172,8 @@ export async function fetchRestaurantNews(pageSize = 20): Promise<NewsArticle[]>
   const res = await fetch(url, {
     headers: { "X-Api-Key": newsConfig.apiKey },
     // Matches the PRD's 15-30 minute refresh cadence for the news feed.
-    next: { revalidate: 900 },
+    ...(refresh ? { cache: "no-store" as const } : { next: { revalidate: 900 } }),
+    signal: AbortSignal.timeout(15000),
   });
 
   if (!res.ok) {
@@ -166,23 +183,17 @@ export async function fetchRestaurantNews(pageSize = 20): Promise<NewsArticle[]>
 
   const data = (await res.json()) as NewsApiResponse;
 
-  return data.articles
+  const articles = data.articles
     .filter((a) => a.title && a.title !== "[Removed]")
-    .map((a, i) => {
-      const text = `${a.title} ${a.description ?? ""}`;
-      return {
-        id: `${a.publishedAt}-${i}`,
-        url: a.url,
-        source: a.source?.name ?? "Unknown",
-        title: a.title,
-        snippet: a.description ?? "",
-        publishedAt: a.publishedAt,
-        brands: matchBrands(text),
-        topic: guessTopic(text),
-        sentiment: guessSentiment(text),
-        whyItMatters: "AI-generated context is not yet wired up for live articles.",
-      } satisfies NewsArticle;
-    })
+    .filter((article) => /^https?:\/\//i.test(article.url) && Number.isFinite(new Date(article.publishedAt).getTime()))
+    .map((article) => normalizeArticle({ title: article.title, snippet: article.description ?? "", url: article.url, source: article.source?.name ?? "Unknown", publishedAt: new Date(article.publishedAt).toISOString() }))
     .filter((article) => isRelevantArticle(`${article.title} ${article.snippet}`));
+  if (articles.length) return { articles, provider: "NewsAPI" };
+    } catch (error) {
+      console.error("NewsAPI ingestion failed; trying public RSS:", error instanceof Error ? error.message.slice(0, 180) : "Request failed");
+    }
+  }
+  const articles = (await fetchRestaurantRss(refresh)).filter((article) => isRelevantArticle(`${article.title} ${article.snippet}`)).map(normalizeArticle);
+  return { articles: [...new Map(articles.map((article) => [article.id, article])).values()], provider: "Google News RSS" };
 }
 

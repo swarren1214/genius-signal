@@ -71,6 +71,8 @@
   --chart-4: #FDA052;
   --chart-5: #FFCC00;
   --radius: 0.5rem;
+  --ease-signal: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-signal-press: cubic-bezier(0.2, 0.8, 0.2, 1);
   --sidebar: #F8F8F8;
   --sidebar-foreground: #0C0C0C;
   --sidebar-primary: #7656d6;
@@ -129,6 +131,104 @@
 }
 
 @layer utilities {
+  .signal-page > * > *,
+  .signal-reveal {
+    animation: signal-reveal 620ms var(--ease-signal) both;
+  }
+  .signal-page > * > :nth-child(2) { animation-delay: 45ms; }
+  .signal-page > * > :nth-child(3) { animation-delay: 90ms; }
+  .signal-page > * > :nth-child(4) { animation-delay: 135ms; }
+  .signal-page > * > :nth-child(5) { animation-delay: 180ms; }
+  .signal-page > * > :nth-child(n+6) { animation-delay: 225ms; }
+  .signal-detail-enter {
+    animation: signal-detail 380ms var(--ease-signal) both;
+  }
+  .signal-choice {
+    transition: background-color 280ms ease, border-color 280ms ease,
+      box-shadow 350ms var(--ease-signal), transform 350ms var(--ease-signal);
+  }
+  .signal-choice[aria-pressed="true"] {
+    box-shadow: inset 2px 0 0 color-mix(in oklch, var(--primary) 65%, transparent);
+  }
+  .signal-choice:active {
+    transform: scale(0.995);
+  }
+  .signal-popover,
+  .signal-dialog {
+    opacity: 1;
+    scale: 1;
+    transition: opacity 220ms ease, scale 320ms var(--ease-signal);
+  }
+  .signal-popover[data-starting-style],
+  .signal-dialog[data-starting-style] {
+    opacity: 0;
+    scale: 0.97;
+  }
+  .signal-popover[data-ending-style],
+  .signal-dialog[data-ending-style] {
+    opacity: 0;
+    scale: 0.985;
+    transition-duration: 160ms;
+  }
+  .signal-overlay {
+    opacity: 1;
+    transition: opacity 250ms ease;
+  }
+  .signal-overlay[data-starting-style],
+  .signal-overlay[data-ending-style] {
+    opacity: 0;
+  }
+  [data-slot="sidebar-container"],
+  [data-slot="sidebar-gap"] {
+    transition-duration: 350ms;
+    transition-timing-function: var(--ease-signal);
+  }
+  [data-slot="sidebar-menu-button"] {
+    transition: background-color 240ms ease, color 240ms ease,
+      border-color 240ms ease, padding 350ms var(--ease-signal);
+  }
+  [data-slot="select-trigger"][data-popup-open] > svg {
+    rotate: 180deg;
+  }
+  [data-slot="select-trigger"] > svg {
+    transition: rotate 280ms var(--ease-signal);
+  }
+  [data-slot="sheet-content"] {
+    transition-duration: 350ms;
+    transition-timing-function: var(--ease-signal);
+  }
+  .signal-button {
+    transition: background-color 220ms ease, border-color 220ms ease,
+      color 220ms ease, box-shadow 300ms var(--ease-signal),
+      transform 300ms var(--ease-signal);
+  }
+  .signal-button:active:not(:disabled):not([aria-disabled="true"]) {
+    transform: scale(0.97);
+    transition-duration: 100ms;
+    transition-timing-function: var(--ease-signal-press);
+  }
+  .signal-button-primary {
+    background-image: linear-gradient(160deg, rgb(255 255 255 / 12%), transparent 65%);
+    box-shadow: inset 0 1px 0 rgb(255 255 255 / 18%),
+      0 2px 8px color-mix(in oklch, var(--primary) 12%, transparent);
+  }
+  .signal-panel {
+    background-image: linear-gradient(145deg,
+      color-mix(in oklch, var(--foreground) 2%, transparent), transparent 50%);
+    transition: border-color 300ms ease, box-shadow 350ms var(--ease-signal);
+  }
+  @media (hover: hover) and (pointer: fine) {
+    .signal-button:hover:not(:disabled):not([aria-disabled="true"]) {
+      transform: translateY(-1px);
+    }
+    .signal-button-primary:hover:not(:disabled) {
+      box-shadow: inset 0 1px 0 rgb(255 255 255 / 22%),
+        0 4px 16px color-mix(in oklch, var(--primary) 20%, transparent);
+    }
+    .signal-button:active:hover:not(:disabled) {
+      transform: scale(0.97);
+    }
+  }
   .glass-panel {
     @apply bg-card border border-border;
   }
@@ -138,7 +238,26 @@
   }
 }
 
+@keyframes signal-reveal {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes signal-detail {
+  from { opacity: 0; transform: translateY(5px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .signal-page > * > *,
+  .signal-reveal,
+  .signal-detail-enter {
+    animation: none !important;
+  }
+  .signal-button,
+  .signal-choice {
+    transform: none !important;
+  }
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;

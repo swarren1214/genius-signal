@@ -30,19 +30,19 @@ export type KpiIconName = keyof typeof iconRegistry;
 
 interface KpiCardProps {
   label: string;
-  value: number;
+  value: number | null;
   suffix?: string;
-  delta?: number;
+  delta?: number | null;
   icon: KpiIconName;
   note?: string;
   accent?: "brand" | "positive" | "negative";
 }
 
-function CountUp({ value, suffix }: Readonly<{ value: number; suffix?: string }>) {
+function CountUp({ value, suffix }: Readonly<{ value: number | null; suffix?: string }>) {
   return (
     <span className="tabular-nums">
-      {value.toLocaleString(undefined, { minimumFractionDigits: value % 1 ? 1 : 0, maximumFractionDigits: value % 1 ? 1 : 0 })}
-      {suffix}
+      {value === null ? "Unavailable" : value.toLocaleString(undefined, { minimumFractionDigits: value % 1 ? 1 : 0, maximumFractionDigits: value % 1 ? 1 : 0 })}
+      {value !== null && suffix}
     </span>
   );
 }
@@ -70,7 +70,7 @@ export function KpiCard({
           <p className="text-3xl font-normal">
             <CountUp value={value} suffix={suffix} />
           </p>
-          {delta !== undefined && (
+          {delta !== undefined && delta !== null && (
             <p
               className={cn(
                 "font-mono text-[11px]",

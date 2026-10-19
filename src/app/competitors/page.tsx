@@ -1,74 +1,15 @@
-import { Gauge } from "lucide-react";
-
+import Link from "next/link";
 import { PageHero } from "@/components/dashboard/page-hero";
-import { FadeInStagger, FadeInItem } from "@/components/motion/fade-in";
-import {
-  Card,
-  CardContent,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
+import { SourceStatus } from "@/components/dashboard/source-status";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Separator } from "@/components/ui/separator";
-import { trackedBrands } from "@/lib/mock-data";
+import { getNewsFeed } from "@/lib/data/news";
+import { getBrandSignals } from "@/lib/data/sentiment";
 
-const competitorDetails: Record<string, { founded: string; hq: string; notableFeature: string }> = {
-  genius: { founded: "—", hq: "Atlanta, GA", notableFeature: "AI-assisted tableside checkout" },
-  toast: { founded: "2012", hq: "Boston, MA", notableFeature: "All-in-one restaurant platform" },
-  square: { founded: "2009", hq: "San Francisco, CA", notableFeature: "Integrated hardware + software" },
-  clover: { founded: "2010", hq: "Sunnyvale, CA", notableFeature: "App marketplace ecosystem" },
-  touchbistro: { founded: "2010", hq: "Toronto, ON", notableFeature: "iPad-native POS for full-service" },
-  lightspeed: { founded: "2005", hq: "Montreal, QC", notableFeature: "Multi-location reporting" },
-  spoton: { founded: "2017", hq: "San Francisco, CA", notableFeature: "Online ordering + delivery network" },
-};
+export const dynamic = "force-dynamic";
 
-export default function CompetitorsPage() {
-  return (
-    <div className="space-y-6">
-      <PageHero
-        eyebrow="Competitive Landscape"
-        title="Competitor Comparison"
-        description="Side-by-side view of tracked restaurant POS brands: company facts, current sentiment, and notable recent moves."
-      />
-
-      <FadeInStagger className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {trackedBrands.map((brand, index) => {
-          const details = competitorDetails[brand.id];
-          return (
-            <FadeInItem key={brand.id} index={index}>
-              <Card className="glass-panel h-full">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle className="text-base">{brand.name}</CardTitle>
-                  {brand.isOwnBrand && (
-                    <Badge className="bg-primary text-primary-foreground">Own Brand</Badge>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3 text-sm">
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Founded</span>
-                    <span className="text-foreground">{details.founded}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>HQ</span>
-                    <span className="text-foreground">{details.hq}</span>
-                  </div>
-                  <div className="flex items-center justify-between text-muted-foreground">
-                    <span>Notable Feature</span>
-                    <span className="text-right text-foreground">{details.notableFeature}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex items-center justify-between">
-                    <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <Gauge className="size-3.5" /> Sentiment
-                    </span>
-                    <span className="font-semibold">{brand.sentiment}/100</span>
-                  </div>
-                </CardContent>
-              </Card>
-            </FadeInItem>
-          );
-        })}
-      </FadeInStagger>
-    </div>
-  );
+export default async function CompetitorsPage() {
+  const news = await getNewsFeed();
+  const signals = getBrandSignals(news.articles);
+  return <div className="space-y-5"><PageHero eyebrow="Competitive landscape / monitored reporting" title="Compare the signals you can verify." description="Tracked brands, actual recent coverage, and transparent news-tone measurements. No invented company facts or launch timelines." actions={<Link href="/settings" className="text-xs text-primary">Edit tracked brands →</Link>} /><SourceStatus name={news.provider} health={news} /><div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">{signals.map((signal) => <Card key={signal.brand.id} className="shadow-none"><CardHeader className="flex flex-row items-start justify-between gap-2"><CardTitle>{signal.brand.name}</CardTitle>{signal.brand.isOwnBrand && <Badge variant="secondary">Own brand</Badge>}</CardHeader><CardContent className="space-y-4"><div className="grid grid-cols-2 gap-4 border-b border-border pb-4"><div><p className="text-2xl font-normal">{signal.articles.length}</p><p className="mt-1 text-[10px] text-muted-foreground">Retrieved articles · 30 days</p></div><div><p className="text-2xl font-normal">{signal.score ?? "—"}</p><p className="mt-1 text-[10px] text-muted-foreground">Calculated news tone</p></div></div>{signal.articles.slice(0, 3).map((article) => <Link href={`/news?article=${article.id}`} key={article.id} className="block"><p className="font-mono text-[9px] text-muted-foreground">{article.source} · {article.topic} · {article.publishedAt.slice(0, 10)}</p><h3 className="mt-1 text-xs font-medium leading-5">{article.title}</h3></Link>)}{!signal.articles.length && <p className="py-6 text-xs text-muted-foreground">No recent reporting has been retrieved for this brand.</p>}<p className="border-t border-border pt-3 text-[10px] text-muted-foreground">Search terms: {signal.brand.newsSearchTerms.join(", ")}</p></CardContent></Card>)}</div></div>;
 }

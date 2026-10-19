@@ -11,3 +11,10 @@ export const newsConfig = {
 
 export const isPendoConfigured = Boolean(pendoConfig.apiKey);
 export const isNewsConfigured = Boolean(newsConfig.apiKey);
+
+export const aiConfig = {
+  apiKey: process.env.OPENAI_API_KEY ?? "",
+  model: process.env.OPENAI_MODEL ?? "gpt-4.1-mini",
+};
+
+export const isAiConfigured = Boolean(aiConfig.apiKey);

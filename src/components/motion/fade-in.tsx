@@ -1,9 +1,8 @@
 "use client";
 
-import { motion } from "framer-motion";
 import type { ReactNode } from "react";
+import { cn } from "@/lib/utils";
 
-/** Simple layout wrapper; entrance animation lives on each FadeInItem below. */
 export function FadeInStagger({
   children,
   className,
@@ -24,13 +23,11 @@ export function FadeInItem({
   index?: number;
 }>) {
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: "easeOut", delay: index * 0.06 }}
-      className={className}
+    <div
+      className={cn("signal-reveal", className)}
+      style={{ animationDelay: `${Math.min(index, 7) * 45}ms` }}
     >
       {children}
-    </motion.div>
+    </div>
   );
 }

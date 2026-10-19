@@ -262,7 +262,7 @@ function SidebarTrigger({
       data-sidebar="trigger"
       data-slot="sidebar-trigger"
       aria-label="Toggle navigation"
-      className={cn("inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground", className)}
+      className={cn("signal-button inline-flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground", className)}
       onClick={(event) => {
         onClick?.(event)
         toggleSidebar()

@@ -1,6 +1,6 @@
 "use client";
 
-import { Bell, Search } from "lucide-react";
+import { Sparkles, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
@@ -45,11 +45,10 @@ export function SiteHeader() {
         <ThemeToggle />
         <Link
           href="/insights"
-          aria-label="Notifications"
-          className="relative inline-flex size-9 items-center justify-center rounded-lg text-muted-foreground transition hover:bg-muted hover:text-foreground"
+          aria-label="Open product insights"
+          className="signal-button relative inline-flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
         >
-          <Bell className="size-4" />
-          <span className="absolute right-1.5 top-1.5 size-1.5 rounded-full bg-primary" />
+          <Sparkles className="size-4" />
         </Link>
         <Link
           href="/settings"

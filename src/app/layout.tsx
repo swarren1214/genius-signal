@@ -19,6 +19,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+export const dynamic = "force-dynamic";
+
 export const metadata: Metadata = {
   title: "Genius Signal",
   description:
@@ -43,7 +45,7 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   {children}
                   <footer className="flex flex-wrap items-center justify-between gap-3 pt-2 font-mono text-[9px] text-muted-foreground">
                     <span>GENIUS PRODUCT / RESTAURANT VERTICAL</span>
-                    <span>Reference metrics preserved · expanded trends and evidence are illustrative</span>
+                    <span>Retrieved sources · explicit source health · no synthetic metrics</span>
                   </footer>
                 </main>
               </SidebarInset>
