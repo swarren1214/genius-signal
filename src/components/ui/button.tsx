@@ -1,6 +1,6 @@
-import { VegaButton } from "@/components/vega-components"
+import { Button as ButtonPrimitive } from "@base-ui/react/button"
 import { cva, type VariantProps } from "class-variance-authority"
-import type { ComponentProps } from "react"
+import { type ComponentProps } from "react"
 import { cn } from "cn"
 
 const buttonVariants = cva(
@@ -45,20 +45,14 @@ function Button({
   variant = "default",
   size = "default",
   ...props
-}: Omit<ComponentProps<typeof VegaButton>, "size" | "variant" | "nativeButton" | "render"> & VariantProps<typeof buttonVariants>) {
-  let vegaSize: "default" | "small" | "large" = "default"
-  if (size === "lg") vegaSize = "large"
-  if (size === "sm" || size === "xs") vegaSize = "small"
-
+}: ComponentProps<typeof ButtonPrimitive> & VariantProps<typeof buttonVariants>) {
   return (
-    <VegaButton
+    <ButtonPrimitive
       data-slot="button"
       className={cn(buttonVariants({ variant, size, className }))}
-      variant={variant === "default" || variant === "destructive" ? "primary" : "secondary"}
-      size={vegaSize}
       {...props}
     />
   )
 }
 
-export { Button }
+export { Button, buttonVariants }

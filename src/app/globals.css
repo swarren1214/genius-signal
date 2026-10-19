@@ -1,5 +1,4 @@
 @import "tailwindcss";
-@import "@globalpayments/vega/style/vega.css";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -47,15 +46,6 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
-/*
- * Global Payments brand palette (gpbrandguide.com):
- * Primary: White #FFFFFF, Global Blue #262AFF
- * Secondary: Deep Blue #1B1EC6, Black #0C0C0C
- * Tertiary (sparing accents only): Pulse Blue #1CABFF, Sunshine #FFCC00,
- *   Creamsicle #FDA052, Raspberry #F4364C, Grape #87179D
- * Neutral: Charcoal #595959, Smoke #C4C4C4, Fog #EEEEEE, Haze #F4F4F4, Mist #F8F8F8
- * Per brand guidelines: no gradients as backgrounds, icons, or typography.
- */
 :root {
   --background: #FFFFFF;
   --foreground: #0C0C0C;
@@ -63,66 +53,66 @@
   --card-foreground: #0C0C0C;
   --popover: #FFFFFF;
   --popover-foreground: #0C0C0C;
-  --primary: #262AFF;
+  --primary: #7656d6;
   --primary-foreground: #FFFFFF;
   --secondary: #F4F4F4;
   --secondary-foreground: #0C0C0C;
   --muted: #EEEEEE;
   --muted-foreground: #595959;
-  --accent: #EEF0FF;
-  --accent-foreground: #262AFF;
+  --accent: #eee9fa;
+  --accent-foreground: #6849bc;
   --destructive: #F4364C;
   --border: #EEEEEE;
   --input: #EEEEEE;
-  --ring: #262AFF;
-  --chart-1: #262AFF;
+  --ring: #9474ed;
+  --chart-1: #9474ed;
   --chart-2: #1CABFF;
   --chart-3: #87179D;
   --chart-4: #FDA052;
   --chart-5: #FFCC00;
-  --radius: 0.75rem;
+  --radius: 0.5rem;
   --sidebar: #F8F8F8;
   --sidebar-foreground: #0C0C0C;
-  --sidebar-primary: #262AFF;
+  --sidebar-primary: #7656d6;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #EEF0FF;
-  --sidebar-accent-foreground: #262AFF;
+  --sidebar-accent: #eee9fa;
+  --sidebar-accent-foreground: #6849bc;
   --sidebar-border: #EEEEEE;
-  --sidebar-ring: #262AFF;
+  --sidebar-ring: #9474ed;
 }
 
 .dark {
-  --background: #0C0C0C;
-  --foreground: #F8F8F8;
-  --card: #161616;
-  --card-foreground: #F8F8F8;
-  --popover: #141414;
-  --popover-foreground: #F8F8F8;
-  --primary: #262AFF;
+  --background: #0b0d14;
+  --foreground: #f1f0f5;
+  --card: #12141f;
+  --card-foreground: #f1f0f5;
+  --popover: #171925;
+  --popover-foreground: #f1f0f5;
+  --primary: #9775fa;
   --primary-foreground: #FFFFFF;
-  --secondary: #1F1F1F;
-  --secondary-foreground: #F8F8F8;
-  --muted: #1A1A1A;
-  --muted-foreground: #C4C4C4;
-  --accent: #14163D;
-  --accent-foreground: #8F92FF;
+  --secondary: #1a1c2a;
+  --secondary-foreground: #e4e0f1;
+  --muted: #191b27;
+  --muted-foreground: #9293a5;
+  --accent: #28223d;
+  --accent-foreground: #b6a0ff;
   --destructive: #F4364C;
-  --border: color-mix(in oklch, white 10%, transparent);
-  --input: color-mix(in oklch, white 15%, transparent);
-  --ring: #262AFF;
-  --chart-1: #4C50FF;
-  --chart-2: #1CABFF;
-  --chart-3: #B23FC9;
-  --chart-4: #FDA052;
-  --chart-5: #FFCC00;
-  --sidebar: #0C0C0C;
-  --sidebar-foreground: #F8F8F8;
-  --sidebar-primary: #262AFF;
+  --border: #252735;
+  --input: #292b3b;
+  --ring: #a78bfa;
+  --chart-1: #ad97ff;
+  --chart-2: #7bc5b5;
+  --chart-3: #e4b57f;
+  --chart-4: #d586a3;
+  --chart-5: #8b9ac5;
+  --sidebar: #0c0d15;
+  --sidebar-foreground: #c6c4d2;
+  --sidebar-primary: #9775fa;
   --sidebar-primary-foreground: #FFFFFF;
-  --sidebar-accent: #14163D;
-  --sidebar-accent-foreground: #8F92FF;
-  --sidebar-border: color-mix(in oklch, white 10%, transparent);
-  --sidebar-ring: #262AFF;
+  --sidebar-accent: #28223d;
+  --sidebar-accent-foreground: #f0eaff;
+  --sidebar-border: #22232e;
+  --sidebar-ring: #a78bfa;
 }
 
 @layer base {
@@ -134,12 +124,13 @@
   }
   html {
     @apply font-sans;
+    letter-spacing: 0;
   }
 }
 
 @layer utilities {
   .glass-panel {
-    @apply bg-card/80 backdrop-blur-xl border border-border;
+    @apply bg-card border border-border;
   }
   .glow-ring {
     box-shadow: 0 0 0 1px color-mix(in oklch, var(--primary) 25%, transparent),

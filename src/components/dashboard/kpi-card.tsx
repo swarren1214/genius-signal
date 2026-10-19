@@ -1,7 +1,5 @@
 "use client";
 
-import { motion, useMotionValue, useSpring, useTransform } from "framer-motion";
-import { useEffect } from "react";
 import {
   Gauge,
   MousePointerClick,
@@ -36,21 +34,14 @@ interface KpiCardProps {
   suffix?: string;
   delta?: number;
   icon: KpiIconName;
+  note?: string;
   accent?: "brand" | "positive" | "negative";
 }
 
 function CountUp({ value, suffix }: Readonly<{ value: number; suffix?: string }>) {
-  const motionVal = useMotionValue(0);
-  const spring = useSpring(motionVal, { duration: 1.2, bounce: 0 });
-  const display = useTransform(spring, (v) => Math.round(v).toLocaleString());
-
-  useEffect(() => {
-    motionVal.set(value);
-  }, [value, motionVal]);
-
   return (
     <span className="tabular-nums">
-      <motion.span>{display}</motion.span>
+      {value.toLocaleString(undefined, { minimumFractionDigits: value % 1 ? 1 : 0, maximumFractionDigits: value % 1 ? 1 : 0 })}
       {suffix}
     </span>
   );
@@ -62,40 +53,36 @@ export function KpiCard({
   suffix,
   delta,
   icon,
+  note = "vs last week",
   accent = "brand",
 }: Readonly<KpiCardProps>) {
   const isPositive = (delta ?? 0) >= 0;
   const Icon = iconRegistry[icon];
 
   return (
-    <Card className="glass-panel relative overflow-hidden py-0">
-      <div
-        className={cn(
-          "absolute inset-y-0 left-0 w-1 bg-primary",
-          accent === "negative" && "opacity-60"
-        )}
-      />
-      <CardContent className="flex items-start justify-between gap-4 p-5">
-        <div>
-          <p className="text-sm text-muted-foreground">{label}</p>
-          <p className="mt-1 text-2xl font-semibold">
+    <Card className={cn("glass-panel relative overflow-hidden py-0 shadow-none", accent === "negative" && "border-destructive/30")}>
+      <CardContent className="p-5">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">{label}</p>
+          <Icon className="size-3.5 shrink-0 text-muted-foreground" />
+        </div>
+        <div className="mt-3 flex items-baseline justify-between gap-2">
+          <p className="text-3xl font-normal">
             <CountUp value={value} suffix={suffix} />
           </p>
           {delta !== undefined && (
             <p
               className={cn(
-                "mt-1 text-xs font-medium",
-                isPositive ? "text-emerald-500" : "text-rose-500"
+                "font-mono text-[11px]",
+                isPositive ? "text-emerald-600 dark:text-emerald-300/80" : "text-rose-600 dark:text-rose-300/80"
               )}
             >
               {isPositive ? "+" : ""}
-              {delta}% vs last week
+              {delta}%
             </p>
           )}
         </div>
-        <div className="flex size-9 items-center justify-center rounded-lg bg-primary text-primary-foreground shrink-0">
-          <Icon className="size-4" />
-        </div>
+        <p className="mt-3 text-[10px] text-muted-foreground">{note}</p>
       </CardContent>
     </Card>
   );

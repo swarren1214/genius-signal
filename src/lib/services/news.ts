@@ -172,6 +172,7 @@ export async function fetchRestaurantNews(pageSize = 20): Promise<NewsArticle[]>
       const text = `${a.title} ${a.description ?? ""}`;
       return {
         id: `${a.publishedAt}-${i}`,
+        url: a.url,
         source: a.source?.name ?? "Unknown",
         title: a.title,
         snippet: a.description ?? "",

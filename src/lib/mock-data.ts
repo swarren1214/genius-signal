@@ -70,6 +70,7 @@ export const trackedBrands: Brand[] = [
 
 export interface NewsArticle {
   id: string;
+  url?: string;
   source: string;
   title: string;
   snippet: string;
@@ -153,6 +154,12 @@ Genius' new AI-assisted tableside checkout launch generated strong, positive pre
 On the reliability front, **Clover** experienced a regional outage during peak weekend hours, continuing a pattern of intermittent reliability complaints. Meanwhile, **SpotOn** and **TouchBistro** both announced feature partnerships (delivery network integration and kitchen display systems, respectively), signaling continued investment in online ordering and kitchen efficiency across the competitive set.
 
 Product usage: feature adoption for tableside payments is up 12% week-over-week, likely tied to this week's launch coverage.`;
+
+export const digestHighlights = [
+  { title: "Tableside pay is finding its moment.", body: "Genius' AI-assisted checkout launch drew positive press coverage. Adoption is up 12% week over week, likely tied to the launch." },
+  { title: "Lead with value. Back it with reliability.", body: "Toast faced pushback on a transaction fee increase for full-service accounts. Clover saw a regional peak-hour outage." },
+  { title: "The next battleground is the workflow.", body: "SpotOn and TouchBistro announced partnerships in delivery integration and kitchen display systems, respectively." },
+];
 
 export interface KpiDatum {
   label: string;

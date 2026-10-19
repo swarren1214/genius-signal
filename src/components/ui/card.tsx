@@ -1,19 +1,17 @@
 import * as React from "react"
-import { VegaCard } from "@/components/vega-components"
 import { cn } from "cn"
 
 function Card({
   className,
   size = "default",
   ...props
-}: Omit<React.ComponentProps<typeof VegaCard>, "size"> & { size?: "default" | "sm" }) {
+}: React.ComponentProps<"div"> & { size?: "default" | "sm" }) {
   return (
-    <VegaCard
+    <div
       data-slot="card"
       data-size={size}
-      variant="border"
       className={cn(
-        "group/card flex flex-col gap-4 overflow-hidden text-sm text-card-foreground",
+        "group/card flex flex-col gap-4 overflow-hidden rounded-lg border bg-card py-(--card-spacing) text-sm text-card-foreground shadow-sm [--card-spacing:1.5rem] data-[size=sm]:[--card-spacing:1rem]",
         className
       )}
       {...props}
@@ -99,4 +97,6 @@ export {
   CardTitle,
   CardDescription,
   CardContent,
+  CardAction,
+  CardFooter,
 }

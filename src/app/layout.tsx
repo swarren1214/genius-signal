@@ -11,7 +11,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 const dmSans = DM_Sans({
   variable: "--font-dm-sans",
   subsets: ["latin"],
-  weight: ["400", "700", "900"],
+  weight: ["400", "500", "600", "700"],
 });
 
 const geistMono = Geist_Mono({
@@ -20,7 +20,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Genius Product Dashboard",
+  title: "Genius Signal",
   description:
     "Market intelligence and product analytics for the Global Payments Genius restaurant vertical.",
 };
@@ -33,13 +33,19 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
       className={`${dmSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
           <TooltipProvider>
             <SidebarProvider>
               <AppSidebar />
               <SidebarInset>
                 <SiteHeader />
-                <main className="flex-1 space-y-6 p-4 sm:p-6">{children}</main>
+                <main className="flex-1 space-y-6 p-5 sm:p-8">
+                  {children}
+                  <footer className="flex flex-wrap items-center justify-between gap-3 pt-2 font-mono text-[9px] text-muted-foreground">
+                    <span>GENIUS PRODUCT / RESTAURANT VERTICAL</span>
+                    <span>Reference metrics preserved · expanded trends and evidence are illustrative</span>
+                  </footer>
+                </main>
               </SidebarInset>
             </SidebarProvider>
           </TooltipProvider>
