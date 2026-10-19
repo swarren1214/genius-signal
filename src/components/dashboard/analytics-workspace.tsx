@@ -59,7 +59,7 @@ export function AnalyticsWorkspace({
     const escape = (value: string | number) =>
       `"${String(value).replaceAll('"', '""')}"`;
     const csv = [
-      "Feature ID,Feature,Visitors,Events,App visitor adoption (%),App ID,Period end",
+      "Feature ID,Feature,Visitors,Events,Per-app visitor adoption (%),Feature app ID,Selected scope IDs,Period end",
       ...rows.map((row) =>
         [
           row.id,
@@ -67,6 +67,7 @@ export function AnalyticsWorkspace({
           row.visitors,
           row.events,
           row.adoption ?? "",
+          row.appId,
           data.appId,
           data.endDate,
         ]
@@ -115,9 +116,10 @@ export function AnalyticsWorkspace({
         }
       />
       <SourceStatus name="Pendo" health={data.health} />
-      <p className="font-mono text-[10px] text-muted-foreground">
-        APP {data.appId || "NOT SET"} · {data.startDate.slice(0, 10)} –{" "}
-        {data.endDate.slice(0, 10)}
+      <p className="break-words font-mono text-[10px] text-muted-foreground">
+        SELECTED APPS{" "}
+        {(data.appIds ?? [data.appId]).filter(Boolean).join(" · ") || "NOT SET"}{" "}
+        · {data.startDate.slice(0, 10)} – {data.endDate.slice(0, 10)}
       </p>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <KpiCard
@@ -146,6 +148,55 @@ export function AnalyticsWorkspace({
           note="Observed events · last 7 completed days"
         />
       </div>
+      <Card className="shadow-none">
+        <CardHeader>
+          <CardTitle>Coverage and metric definitions</CardTitle>
+          <p className="text-xs text-muted-foreground">
+            Every visitor in the selected apps. No restaurant-type or
+            customer-segment filter is configured.
+          </p>
+        </CardHeader>
+        <CardContent>
+          <div className="max-w-full overflow-x-auto">
+            <table className="w-full min-w-120 text-left text-xs">
+              <thead className="text-muted-foreground">
+                <tr>
+                  <th className="pb-3 font-normal">Application</th>
+                  <th className="pb-3 font-normal">ID</th>
+                  <th className="pb-3 font-normal">Weekly visitors</th>
+                  <th className="pb-3 font-normal">Weekly events</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.apps?.map((app) => (
+                  <tr key={app.appId} className="border-t border-border">
+                    <td className="py-3">{app.appName}</td>
+                    <td className="font-mono text-[10px]">{app.appId}</td>
+                    <td className="tabular-nums">
+                      {app.visitors.toLocaleString()}
+                    </td>
+                    <td className="tabular-nums">
+                      {app.events.toLocaleString()}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-4 text-[10px] leading-5 text-muted-foreground">
+            Overall visitors and accounts count each ID once across selected
+            apps. Per-app visitors can overlap and must not be added together.
+            Events are observed activity across the selected apps. Weekly
+            comparisons use two consecutive completed 7-day reporting windows.
+          </p>
+          <Link
+            href="/settings"
+            className="mt-3 inline-block text-xs text-primary"
+          >
+            Change selected applications →
+          </Link>
+        </CardContent>
+      </Card>
       <Card className="shadow-none">
         <CardHeader>
           <CardTitle>Daily application activity</CardTitle>
@@ -206,6 +257,7 @@ export function AnalyticsWorkspace({
                   <tr>
                     {[
                       "Feature",
+                      "Application",
                       "Distinct visitors",
                       "Events",
                       "App adoption",
@@ -219,8 +271,15 @@ export function AnalyticsWorkspace({
                 </thead>
                 <tbody>
                   {rows.map((row) => (
-                    <tr key={row.id} className="border-b border-border">
+                    <tr
+                      key={`${row.appId}:${row.id}`}
+                      className="border-b border-border"
+                    >
                       <td className="px-3 py-4 font-medium">{row.name}</td>
+                      <td className="px-3 text-muted-foreground">
+                        {data.apps?.find((app) => app.appId === row.appId)
+                          ?.appName ?? row.appId}
+                      </td>
                       <td className="px-3 tabular-nums">
                         {row.visitors.toLocaleString()}
                       </td>
@@ -246,9 +305,10 @@ export function AnalyticsWorkspace({
             </p>
           )}
           <p className="mt-4 text-[10px] leading-5 text-muted-foreground">
-            Adoption is feature visitors divided by distinct active application
-            visitors, not eligible restaurant locations. No activation funnel,
-            sessions, or retention are inferred.
+            Adoption is feature visitors divided by distinct visitors in the
+            associated application, not visitors across the full selected scope
+            or eligible restaurant locations. No activation funnel, sessions, or
+            retention are inferred.
           </p>
           <Link
             href="/settings"

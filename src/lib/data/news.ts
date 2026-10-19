@@ -1,5 +1,6 @@
 import { fetchRestaurantNews } from "@/lib/services/news";
 import type { NewsArticle } from "@/lib/types";
+import { selectNewsStories } from "@/lib/services/news-quality";
 import {
   getBrands,
   listRecords,
@@ -33,17 +34,14 @@ export async function getNewsFeed(
       error: "Add a tracked brand to enable news ingestion.",
     };
   const cached = () =>
-    listRecords<NewsArticle>("article")
-      .filter(
+    selectNewsStories(
+      listRecords<NewsArticle>("article").filter(
         (article) =>
           (!article.brands.length ||
             article.brands.some((id) => tracked.has(id))) &&
-          new Date(article.publishedAt).getTime() >= Date.now() - 30 * 86400000,
-      )
-      .sort((first, second) =>
-        second.publishedAt.localeCompare(first.publishedAt),
-      )
-      .slice(0, limit);
+          Number.isFinite(new Date(article.publishedAt).getTime()),
+      ),
+    ).slice(0, limit);
   if (
     !refresh &&
     last?.fetchedAt &&
@@ -60,6 +58,9 @@ export async function getNewsFeed(
       status: "connected",
       fetchedAt,
       provider: result.provider,
+      error: result.warnings?.length
+        ? `Partial ingestion: ${result.warnings.join(" ")}`
+        : undefined,
     };
     writeRecord("source", "news", health);
     return { ...health, articles: cached() };

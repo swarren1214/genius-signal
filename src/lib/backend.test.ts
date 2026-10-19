@@ -13,13 +13,25 @@ import {
   readRecord,
   writeRecord,
 } from "@/lib/database";
-import { calculateNewsScore } from "@/lib/data/sentiment";
+import { calculateNewsScore, getBrandSignals } from "@/lib/data/sentiment";
 import { classifySentiment } from "@/lib/services/news";
 import { changePercent, eventSource } from "@/lib/services/pendo-analytics";
 import { POST as workspacePost } from "@/app/api/workspace/route";
 import { POST as aiPost } from "@/app/api/ai/route";
 import { GET as ingestGet } from "@/app/api/ingest/route";
 import { proxy } from "@/proxy";
+import {
+  canonicalStoryUrl,
+  isTimelyNews,
+  selectNewsStories,
+} from "@/lib/services/news-quality";
+import { parseRssFeed } from "@/lib/services/rss";
+import {
+  pendoScopeSchema,
+  resolvePendoScope,
+  scopeAppIds,
+} from "@/lib/pendo-scope";
+import { getNewsFeed } from "@/lib/data/news";
 
 const directory = mkdtempSync(join(tmpdir(), "signal-tests-"));
 process.env.SIGNAL_DB_PATH = join(directory, "workspace.sqlite");
@@ -75,11 +87,165 @@ test("no news articles means no sentiment score", () => {
   );
 });
 
+test("news quality excludes evergreen reviews, guides, stale and future stories", () => {
+  const now = Date.parse("2026-10-19T12:00:00Z");
+  const story = {
+    title: "Toast launches restaurant payment integration",
+    url: "https://publisher.test/news",
+    source: "Publisher",
+    publishedAt: "2026-10-18T12:00:00Z",
+  };
+  assert.equal(isTimelyNews(story, now), true);
+  for (const title of [
+    "Best Restaurant POS Systems in 2026",
+    "TouchBistro POS Review and Pricing Plans in 2026",
+    "The Complete Restaurant POS Systems Guide for 2026",
+  ])
+    assert.equal(isTimelyNews({ ...story, title }, now), false);
+  assert.equal(
+    isTimelyNews({ ...story, publishedAt: "2026-09-01T12:00:00Z" }, now),
+    false,
+  );
+  assert.equal(
+    isTimelyNews({ ...story, publishedAt: "2026-10-20T12:00:00Z" }, now),
+    false,
+  );
+  assert.equal(
+    isTimelyNews(
+      { ...story, title: "Toast wins best restaurant technology award" },
+      now,
+    ),
+    true,
+  );
+});
+
+test("trade RSS summaries retain publisher text and reject invalid payloads", () => {
+  const stories = parseRssFeed(
+    '<rss><channel><item><title>Restaurant payment launch</title><link>https://publisher.test/launch</link><pubDate>Sun, 18 Oct 2026 12:00:00 GMT</pubDate><description><![CDATA[<p>Publisher <strong>summary</strong> with a <a href="https://publisher.test">link</a>.</p>]]></description></item></channel></rss>',
+    "Trade Publisher",
+  );
+  assert.equal(stories[0].source, "Trade Publisher");
+  assert.equal(stories[0].snippet, "Publisher summary with a link.");
+  assert.throws(() =>
+    parseRssFeed("<html>Unavailable</html>", "Trade Publisher"),
+  );
+});
+
+test("cached evergreen articles cannot bypass the current news policy", async () => {
+  const article = {
+    id: "cache-policy-test",
+    title: "Best Restaurant POS Systems in 2026",
+    url: "https://publisher.test/buying-guide",
+    source: "Publisher",
+    publishedAt: new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
+    snippet: "Restaurant POS software comparison",
+    brands: ["toast"],
+    topic: "General",
+    sentiment: "neutral",
+    sentimentScore: 0,
+    whyItMatters: "",
+  };
+  writeRecord("article", article.id, article);
+  writeRecord("source", "news", {
+    status: "connected",
+    isLive: true,
+    fetchedAt: new Date().toISOString(),
+    provider: "Unit-test feed",
+  });
+  const result = await getNewsFeed();
+  assert.equal(
+    result.articles.some((item) => item.id === article.id),
+    false,
+  );
+  deleteRecord("article", article.id);
+  deleteRecord("source", "news");
+});
+
+test("story deduplication handles tracking URLs and syndicated headlines without merging different numbers", () => {
+  const now = Date.parse("2026-10-19T12:00:00Z");
+  const story = {
+    title: "Toast launches new restaurant tableside payment platform",
+    url: "https://publisher.test/news?utm_source=email",
+    source: "Publisher",
+    publishedAt: "2026-10-18T12:00:00Z",
+  };
+  assert.equal(canonicalStoryUrl(story.url), "https://publisher.test/news");
+  const duplicate = {
+    ...story,
+    title: "Toast launches restaurant tableside payment platform - Wire",
+    url: "https://wire.test/coverage",
+    source: "Wire",
+  };
+  assert.equal(
+    selectNewsStories(
+      [
+        story,
+        duplicate,
+        { ...story, url: "https://publisher.test/news?fbclid=tracking" },
+      ],
+      now,
+    ).length,
+    1,
+  );
+  assert.equal(
+    selectNewsStories(
+      [
+        {
+          ...story,
+          title: "Toast raises restaurant payment processing fees by 5 percent",
+        },
+        {
+          ...story,
+          url: "https://wire.test/other",
+          title:
+            "Toast raises restaurant payment processing fees by 10 percent",
+        },
+      ],
+      now,
+    ).length,
+    2,
+  );
+});
+
 test("Pendo pipelines require and carry an exact application scope", () => {
   assert.throws(() => eventSource("", 0, 7));
   assert.equal(eventSource("123", 0, 7).source.events.appId, 123);
   assert.equal(changePercent(120, 100), 20);
   assert.equal(changePercent(10, 0), null);
+  assert.deepEqual(
+    eventSource(["123", "456"], 0, 7).source.events.appId,
+    [123, 456],
+  );
+  assert.throws(() => eventSource(["123", "123"], 0, 7));
+  assert.throws(() => eventSource("-323232", 0, 7));
+});
+
+test("Pendo scope preserves legacy selection and validates explicit multi-app coverage", () => {
+  const legacy = resolvePendoScope(
+    { appId: "123", appName: "Current application" },
+    { appId: "456", appName: "Fallback" },
+  );
+  assert.deepEqual(scopeAppIds(legacy), ["123"]);
+  assert.equal(legacy.apps[0].appName, "Current application");
+  const scope = pendoScopeSchema.parse({
+    appName: "Selected restaurant applications",
+    apps: [
+      { appId: "456", appName: "iOS" },
+      { appId: "123", appName: "Android" },
+    ],
+  });
+  assert.deepEqual(scopeAppIds(scope), ["123", "456"]);
+  assert.throws(() =>
+    pendoScopeSchema.parse({
+      appName: "",
+      apps: [
+        { appId: "123", appName: "One" },
+        { appId: "123", appName: "Duplicate" },
+      ],
+    }),
+  );
+  assert.throws(() => pendoScopeSchema.parse({ appName: "", apps: [] }));
 });
 
 test("workspace writes reject cross-origin and invalid requests", async () => {
@@ -195,6 +361,70 @@ test("brand edits persist without fake source state", async () => {
   );
 });
 
+test("scope mutations persist explicit app lists and reject duplicate/default coverage", async () => {
+  const apps = [
+    { appId: "123", appName: "Android" },
+    { appId: "456", appName: "iOS" },
+  ];
+  assert.equal(
+    (
+      await workspacePost(
+        request({
+          action: "save-pendo-settings",
+          apps,
+          appName: "Selected apps",
+        }),
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    readRecord<{ apps: unknown[] }>("settings", "pendo")?.apps.length,
+    2,
+  );
+  assert.equal(
+    (
+      await workspacePost(
+        request({
+          action: "save-pendo-settings",
+          apps: [apps[0], apps[0]],
+          appName: "Invalid",
+        }),
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await workspacePost(
+        request({
+          action: "save-pendo-settings",
+          appId: "-323232",
+          appName: "Default app",
+        }),
+      )
+    ).status,
+    400,
+  );
+  assert.equal(
+    (
+      await workspacePost(
+        request({
+          action: "save-pendo-settings",
+          appId: "123",
+          appName: "Legacy single app",
+        }),
+      )
+    ).status,
+    200,
+  );
+  assert.equal(
+    readRecord<{ apps: unknown[] }>("settings", "pendo")?.apps.length,
+    1,
+  );
+  deleteRecord("settings", "pendo");
+});
+
 test("missing AI and scheduler credentials return unavailable, not canned data", async () => {
   assert.equal(
     (await aiPost(request({ action: "question", question: "What changed?" })))
@@ -232,4 +462,50 @@ test("network access is blocked until authentication is configured", () => {
   else process.env.SIGNAL_AUTH_USER = oldUser;
   if (oldPassword === undefined) delete process.env.SIGNAL_AUTH_PASSWORD;
   else process.env.SIGNAL_AUTH_PASSWORD = oldPassword;
+});
+
+test("sentiment changes do not mix different news selection policies", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const previousDate = new Date(Date.now() - 86400000)
+    .toISOString()
+    .slice(0, 10);
+  writeRecord("sentiment", "legacy-policy-observation", {
+    brandId: "toast",
+    date: previousDate,
+    score: 0,
+  });
+  const articles = [
+    {
+      id: "policy-evidence",
+      url: "https://publisher.test/launch",
+      source: "Publisher",
+      title: "Toast launches restaurant payment integration",
+      snippet: "Launch coverage",
+      publishedAt: new Date().toISOString(),
+      fetchedAt: new Date().toISOString(),
+      brands: ["toast"],
+      topic: "Product Launch",
+      sentiment: "positive" as const,
+      sentimentScore: 1,
+      whyItMatters: "",
+    },
+  ];
+  assert.equal(
+    getBrandSignals(articles).find((signal) => signal.brand.id === "toast")
+      ?.delta,
+    null,
+  );
+  const current = readRecord<{ policy: string }>("sentiment", `toast:${today}`);
+  assert.ok(current?.policy);
+  writeRecord("sentiment", "comparable-policy-observation", {
+    brandId: "toast",
+    date: previousDate,
+    score: 50,
+    policy: current.policy,
+  });
+  assert.equal(
+    getBrandSignals(articles).find((signal) => signal.brand.id === "toast")
+      ?.delta,
+    50,
+  );
 });

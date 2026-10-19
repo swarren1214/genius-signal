@@ -28,6 +28,7 @@ import { postJson } from "@/lib/client-api";
 import { cn } from "@/lib/utils";
 import type { Brand } from "@/lib/types";
 import type { NewsResult } from "@/lib/data/news";
+import { NEWS_WINDOW_DAYS } from "@/lib/services/news-quality";
 
 export function NewsWorkspace({
   news,
@@ -115,6 +116,11 @@ export function NewsWorkspace({
         }
       />
       <SourceStatus name={news.provider} health={news} />
+      <p className="text-[10px] leading-5 text-muted-foreground">
+        Coverage: {NEWS_WINDOW_DAYS} days of recent reporting. Evergreen buying
+        guides and dated product reviews are excluded; near-identical syndicated
+        stories are represented once.
+      </p>
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-0 flex-1 basis-56">
           <Search className="absolute left-3 top-2.5 size-3.5 text-muted-foreground" />

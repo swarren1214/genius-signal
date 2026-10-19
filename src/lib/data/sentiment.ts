@@ -1,5 +1,6 @@
 import { getBrands, listRecords, writeRecord } from "@/lib/database";
 import type { Brand, NewsArticle } from "@/lib/types";
+import { NEWS_POLICY_VERSION } from "@/lib/services/news-quality";
 
 export interface BrandSignal {
   brand: Brand;
@@ -30,16 +31,24 @@ export function calculateNewsScore(
 
 export function getBrandSignals(articles: NewsArticle[]): BrandSignal[] {
   const date = new Date().toISOString().slice(0, 10);
-  const history = listRecords<{ brandId: string; date: string; score: number }>(
-    "sentiment",
-  );
+  const history = listRecords<{
+    brandId: string;
+    date: string;
+    score: number;
+    policy?: string;
+  }>("sentiment");
   return getBrands().map((brand) => {
     const related = articles.filter((article) =>
       article.brands.includes(brand.id),
     );
     const score = calculateNewsScore(related);
     const previous = history
-      .filter((item) => item.brandId === brand.id && item.date < date)
+      .filter(
+        (item) =>
+          item.brandId === brand.id &&
+          item.date < date &&
+          item.policy === NEWS_POLICY_VERSION,
+      )
       .sort((first, second) => second.date.localeCompare(first.date))[0];
     if (score !== null)
       writeRecord("sentiment", `${brand.id}:${date}`, {
@@ -47,6 +56,7 @@ export function getBrandSignals(articles: NewsArticle[]): BrandSignal[] {
         date,
         score,
         count: related.length,
+        policy: NEWS_POLICY_VERSION,
       });
     return {
       brand,

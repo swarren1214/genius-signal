@@ -7,6 +7,7 @@ import { DigestPanel } from "@/components/dashboard/digest-panel";
 import { SourceStatus } from "@/components/dashboard/source-status";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { getOverviewData } from "@/lib/data/overview";
+import { NEWS_WINDOW_DAYS } from "@/lib/services/news-quality";
 
 export const dynamic = "force-dynamic";
 
@@ -35,7 +36,7 @@ export default async function OverviewPage() {
           value={analytics.weeklyActiveUsers}
           delta={analytics.weeklyChange}
           icon="users"
-          note="Configured application · 7 Pendo reporting days"
+          note="Selected scope · 7 Pendo reporting days"
         />
         <KpiCard
           label="Weekly active accounts"
@@ -53,7 +54,7 @@ export default async function OverviewPage() {
           label="Retrieved market articles"
           value={news.fetchedAt ? news.articles.length : null}
           icon="newspaper"
-          note="Tracked brands · last 30 days"
+          note={`Market reporting · last ${NEWS_WINDOW_DAYS} days`}
         />
       </div>
       <div className="grid min-w-0 gap-5 lg:grid-cols-[1.4fr_1fr]">
@@ -62,7 +63,9 @@ export default async function OverviewPage() {
             <div>
               <CardTitle>Product pulse</CardTitle>
               <p className="mt-1 text-xs text-muted-foreground">
-                {analytics.appName} · app {analytics.appId || "not configured"}
+                {analytics.appName} ·{" "}
+                {analytics.appIds?.length ?? (analytics.appId ? 1 : 0)} selected
+                applications
               </p>
             </div>
             <Link

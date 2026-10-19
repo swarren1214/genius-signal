@@ -61,17 +61,15 @@ async function context() {
   const metricAvailable =
     analytics.health.status === "connected" ||
     analytics.health.status === "stale";
-  const articles = news.articles
-    .slice(0, 30)
-    .map((article) => ({
-      id: article.id,
-      source: article.source,
-      title: article.title.slice(0, 300),
-      snippet: article.snippet.slice(0, 1500),
-      publishedAt: article.publishedAt,
-      url: article.url,
-      brands: article.brands,
-    }));
+  const articles = news.articles.slice(0, 30).map((article) => ({
+    id: article.id,
+    source: article.source,
+    title: article.title.slice(0, 300),
+    snippet: article.snippet.slice(0, 1500),
+    publishedAt: article.publishedAt,
+    url: article.url,
+    brands: article.brands,
+  }));
   const allowedIds = new Set([
     ...articles.map((article) => article.id),
     ...(metricAvailable ? [metricId] : []),
@@ -86,6 +84,10 @@ async function context() {
         ? {
             sourceId: metricId,
             appId: analytics.appId,
+            appIds: analytics.appIds,
+            applications: analytics.apps,
+            countingMethod:
+              "Visitor and account totals are distinct across selected applications. Feature adoption divides feature visitors by visitors in that feature's own application. No customer-segment filter is applied.",
             appName: analytics.appName,
             startDate: analytics.startDate,
             endDate: analytics.endDate,

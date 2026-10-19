@@ -1,5 +1,7 @@
 import { XMLParser } from "fast-xml-parser";
 import { getBrands } from "@/lib/database";
+import { convert } from "html-to-text";
+import { NEWS_WINDOW_DAYS } from "@/lib/services/news-quality";
 
 export interface FeedItem {
   title: string;
@@ -9,33 +11,23 @@ export interface FeedItem {
   snippet: string;
 }
 
-export async function fetchRestaurantRss(refresh = false): Promise<FeedItem[]> {
-  const query = getBrands()
-    .flatMap((brand) => brand.newsSearchTerms.slice(0, 1))
-    .map((term) => `"${term}"`)
-    .join(" OR ");
-  if (!query) return [];
-  const url = new URL("https://news.google.com/rss/search");
-  url.searchParams.set(
-    "q",
-    `(${query}) (restaurant OR POS OR payments) when:30d`,
-  );
-  url.searchParams.set("hl", "en-US");
-  url.searchParams.set("gl", "US");
-  url.searchParams.set("ceid", "US:en");
-  const response = await fetch(url, {
-    ...(refresh
-      ? { cache: "no-store" as const }
-      : { next: { revalidate: 900 } }),
-    signal: AbortSignal.timeout(15000),
-  });
-  if (!response.ok) throw new Error(`RSS source returned ${response.status}`);
-  const parsed = new XMLParser({ ignoreAttributes: false }).parse(
-    await response.text(),
-  );
+export const tradeFeeds = [
+  {
+    name: "Restaurant Dive",
+    url: "https://www.restaurantdive.com/feeds/news/",
+  },
+  { name: "PYMNTS", url: "https://www.pymnts.com/feed/" },
+  {
+    name: "Restaurant Technology News",
+    url: "https://restauranttechnologynews.com/feed/",
+  },
+];
+
+export function parseRssFeed(xml: string, provider: string): FeedItem[] {
+  const parsed = new XMLParser({ ignoreAttributes: false }).parse(xml);
   if (!parsed?.rss?.channel)
     throw new Error("RSS source returned an invalid feed.");
-  const raw = parsed?.rss?.channel?.item;
+  const raw = parsed.rss.channel.item;
   const items = Array.isArray(raw) ? raw : raw ? [raw] : [];
   return items.flatMap((item): FeedItem[] => {
     if (
@@ -48,14 +40,69 @@ export async function fetchRestaurantRss(refresh = false): Promise<FeedItem[]> {
     if (!Number.isFinite(date.getTime())) return [];
     const source =
       typeof item.source === "string" ? item.source : item.source?.["#text"];
+    const description =
+      typeof item.description === "string" ? item.description : "";
     return [
       {
         title: item.title,
         url: item.link,
         publishedAt: date.toISOString(),
-        source: typeof source === "string" ? source : "Google News RSS",
-        snippet: "",
+        source: typeof source === "string" ? source : provider,
+        snippet: convert(description.slice(0, 20000), {
+          wordwrap: false,
+          selectors: [
+            { selector: "a", options: { ignoreHref: true } },
+            { selector: "img", format: "skip" },
+          ],
+        }).slice(0, 2000),
       },
     ];
   });
+}
+
+async function fetchFeed(url: string, name: string, refresh: boolean) {
+  const response = await fetch(url, {
+    ...(refresh
+      ? { cache: "no-store" as const }
+      : { next: { revalidate: 900 } }),
+    signal: AbortSignal.timeout(15000),
+  });
+  if (!response.ok) throw new Error(`${name} returned ${response.status}.`);
+  return parseRssFeed(await response.text(), name);
+}
+
+export async function fetchRestaurantRss(
+  refresh = false,
+): Promise<{ items: FeedItem[]; providers: string[]; warnings: string[] }> {
+  const query = getBrands()
+    .flatMap((brand) => brand.newsSearchTerms.slice(0, 1))
+    .map((term) => `"${term}"`)
+    .join(" OR ");
+  if (!query) return { items: [], providers: [], warnings: [] };
+  const url = new URL("https://news.google.com/rss/search");
+  url.searchParams.set(
+    "q",
+    `(${query}) (restaurant OR POS OR payments) when:${NEWS_WINDOW_DAYS}d`,
+  );
+  url.searchParams.set("hl", "en-US");
+  url.searchParams.set("gl", "US");
+  url.searchParams.set("ceid", "US:en");
+  const feeds = [
+    ...tradeFeeds,
+    { name: "Google News RSS", url: url.toString() },
+  ];
+  const results = await Promise.allSettled(
+    feeds.map((feed) => fetchFeed(feed.url, feed.name, refresh)),
+  );
+  const items: FeedItem[] = [];
+  const providers: string[] = [];
+  const warnings: string[] = [];
+  results.forEach((result, index) => {
+    if (result.status === "fulfilled") {
+      providers.push(feeds[index].name);
+      items.push(...result.value);
+    } else warnings.push(`${feeds[index].name} could not be retrieved.`);
+  });
+  if (!providers.length) throw new Error("No RSS source could be retrieved.");
+  return { items, providers, warnings };
 }

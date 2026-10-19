@@ -1,7 +1,17 @@
 import { pendoConfig, isPendoConfigured } from "@/lib/config";
 import { readRecord, writeRecord } from "@/lib/database";
 import { pendoAggregate, pendoFetch } from "@/lib/services/pendo";
-import type { AnalyticsSnapshot, FeatureMetric } from "@/lib/types";
+import type {
+  AnalyticsSnapshot,
+  AppCoverage,
+  FeatureMetric,
+} from "@/lib/types";
+import {
+  pendoAppIdSchema,
+  resolvePendoScope,
+  scopeAppIds,
+  type PendoScope,
+} from "@/lib/pendo-scope";
 
 const DAY = 86400000;
 
@@ -15,23 +25,27 @@ export function changePercent(
 }
 
 export function eventSource(
-  appId: string,
+  appId: string | string[],
   first: number,
   days: number,
   features = false,
 ) {
-  if (!/^-?\d+$/.test(appId))
-    throw new Error("A numeric Pendo application ID is required.");
+  const ids = Array.isArray(appId) ? appId : [appId];
+  if (!ids.length || new Set(ids).size !== ids.length)
+    throw new Error("Select at least one distinct application.");
+  const numericIds = ids.map((id) => Number(pendoAppIdSchema.parse(id)));
   return {
     source: {
-      [features ? "featureEvents" : "events"]: { appId: Number(appId) },
+      [features ? "featureEvents" : "events"]: {
+        appId: numericIds.length === 1 ? numericIds[0] : numericIds,
+      },
       timeSeries: { period: "dayRange", first, count: days },
     },
   };
 }
 
 async function totals(
-  appId: string,
+  appId: string[],
   first: number,
   days: number,
   refresh: boolean,
@@ -61,28 +75,42 @@ async function totals(
 }
 
 async function features(
-  appId: string,
+  apps: AppCoverage[],
   first: number,
-  denominator: number,
   refresh: boolean,
 ): Promise<FeatureMetric[]> {
   const [definitions, rows] = await Promise.all([
-    pendoFetch<{ id: string; name: string; appId?: number }[]>(
-      `/feature?appId=${encodeURIComponent(appId)}`,
-      refresh ? { cache: "no-store" } : undefined,
+    Promise.all(
+      apps.map(async (app) => ({
+        appId: app.appId,
+        features: await pendoFetch<{ id: string; name: string }[]>(
+          `/feature?appId=${encodeURIComponent(app.appId)}`,
+          refresh ? { cache: "no-store" } : undefined,
+        ),
+      })),
     ),
-    pendoAggregate<{ featureId: string; visitors: number; events: number }>(
+    pendoAggregate<{
+      appId: number;
+      featureId: string;
+      visitors: number;
+      events: number;
+    }>(
       [
-        eventSource(appId, first, 7, true),
+        eventSource(
+          apps.map((app) => app.appId),
+          first,
+          7,
+          true,
+        ),
         {
           group: {
-            group: ["featureId", "visitorId"],
+            group: ["appId", "featureId", "visitorId"],
             fields: { events: { sum: "numEvents" } },
           },
         },
         {
           group: {
-            group: ["featureId"],
+            group: ["appId", "featureId"],
             fields: { visitors: { count: null }, events: { sum: "events" } },
           },
         },
@@ -91,17 +119,27 @@ async function features(
     ),
   ]);
   const names = new Map(
-    definitions.map((definition) => [definition.id, definition.name]),
+    definitions.flatMap((app) =>
+      app.features.map((definition) => [
+        `${app.appId}:${definition.id}`,
+        definition.name,
+      ]),
+    ),
   );
+  const denominators = new Map(apps.map((app) => [app.appId, app.visitors]));
   return rows
     .map((row) => ({
+      appId: String(row.appId),
       id: row.featureId,
-      name: names.get(row.featureId) ?? row.featureId,
+      name: names.get(`${row.appId}:${row.featureId}`) ?? row.featureId,
       visitors: Number(row.visitors),
       events: Number(row.events),
       adoption:
-        denominator > 0
-          ? Math.round((Number(row.visitors) / denominator) * 1000) / 10
+        (denominators.get(String(row.appId)) ?? 0) > 0
+          ? Math.round(
+              (Number(row.visitors) / denominators.get(String(row.appId))!) *
+                1000,
+            ) / 10
           : null,
     }))
     .sort((firstRow, secondRow) => secondRow.visitors - firstRow.visitors)
@@ -111,16 +149,30 @@ async function features(
 export async function getPendoAnalytics(
   refresh = false,
 ): Promise<AnalyticsSnapshot> {
-  const settings = readRecord<{ appId: string; appName: string }>(
-    "settings",
-    "pendo",
-  );
-  const appId = settings?.appId ?? pendoConfig.appId;
+  let settings: PendoScope | null = null;
+  try {
+    settings = resolvePendoScope(readRecord("settings", "pendo"), {
+      appId: process.env.PENDO_APP_IDS ?? pendoConfig.appId,
+      appName: process.env.PENDO_APP_NAME ?? "",
+    });
+  } catch {
+    settings = null;
+  }
+  const appIds = settings ? scopeAppIds(settings) : [];
+  const appId = appIds.join(",");
+  const appName =
+    settings?.appName ||
+    (settings?.apps.length === 1 ? settings.apps[0].appName : "") ||
+    (appIds.length > 1
+      ? `${appIds.length} selected applications`
+      : `Application ${appId}`);
   const end = Date.now() - (Date.now() % DAY);
   const start = end - 14 * DAY;
   const empty: AnalyticsSnapshot = {
     appId,
-    appName: appId || "No application selected",
+    appIds,
+    apps: [],
+    appName: appIds.length ? appName : "No valid application scope selected",
     startDate: new Date(start).toISOString().slice(0, 10),
     endDate: new Date(end - 1).toISOString().slice(0, 10),
     dailyActiveUsers: null,
@@ -139,48 +191,93 @@ export async function getPendoAnalytics(
     },
   };
   if (!isPendoConfigured || !appId) return empty;
-  const cacheKey = `${appId}:${empty.endDate.slice(0, 10)}`;
+  const cacheKey = `scope-v2:${appId}:${empty.endDate.slice(0, 10)}`;
   const cached = readRecord<AnalyticsSnapshot>("analytics", cacheKey);
   if (
     !refresh &&
     cached?.health.fetchedAt &&
     Date.now() - new Date(cached.health.fetchedAt).getTime() < 900000
   )
-    return { ...cached, appName: settings?.appName || cached.appName };
+    return {
+      ...cached,
+      appName,
+      apps: cached.apps?.map((app) => ({
+        ...app,
+        appName:
+          settings?.apps.find((selection) => selection.appId === app.appId)
+            ?.appName || `Application ${app.appId}`,
+      })),
+    };
   try {
     const queryStart = start + DAY / 2;
     const currentStart = end - 7 * DAY + DAY / 2;
-    const [current, previous, dailyRows, accountRows] = await Promise.all([
-      totals(appId, currentStart, 7, refresh),
-      totals(appId, queryStart, 7, refresh),
-      pendoAggregate<{ day: number; visitors: number; events: number }>(
-        [
-          eventSource(appId, queryStart, 14),
-          {
-            group: {
-              group: ["day", "visitorId"],
-              fields: { events: { sum: "numEvents" } },
+    const [current, previous, dailyRows, accountRows, appRows] =
+      await Promise.all([
+        totals(appIds, currentStart, 7, refresh),
+        totals(appIds, queryStart, 7, refresh),
+        pendoAggregate<{ day: number; visitors: number; events: number }>(
+          [
+            eventSource(appIds, queryStart, 14),
+            {
+              group: {
+                group: ["day", "visitorId"],
+                fields: { events: { sum: "numEvents" } },
+              },
             },
-          },
-          {
-            group: {
-              group: ["day"],
-              fields: { visitors: { count: null }, events: { sum: "events" } },
+            {
+              group: {
+                group: ["day"],
+                fields: {
+                  visitors: { count: null },
+                  events: { sum: "events" },
+                },
+              },
             },
-          },
-        ],
-        refresh,
-      ),
-      pendoAggregate<{ accounts: number }>(
-        [
-          eventSource(appId, currentStart, 7),
-          { filter: 'accountId != null && accountId != ""' },
-          { group: { group: ["accountId"], fields: {} } },
-          { group: { group: [], fields: { accounts: { count: null } } } },
-        ],
-        refresh,
-      ),
-    ]);
+          ],
+          refresh,
+        ),
+        pendoAggregate<{ accounts: number }>(
+          [
+            eventSource(appIds, currentStart, 7),
+            { filter: 'accountId != null && accountId != ""' },
+            { group: { group: ["accountId"], fields: {} } },
+            { group: { group: [], fields: { accounts: { count: null } } } },
+          ],
+          refresh,
+        ),
+        pendoAggregate<{ appId: number; visitors: number; events: number }>(
+          [
+            eventSource(appIds, currentStart, 7),
+            {
+              group: {
+                group: ["appId", "visitorId"],
+                fields: { events: { sum: "numEvents" } },
+              },
+            },
+            {
+              group: {
+                group: ["appId"],
+                fields: {
+                  visitors: { count: null },
+                  events: { sum: "events" },
+                },
+              },
+            },
+          ],
+          refresh,
+        ),
+      ]);
+    const apps: AppCoverage[] = appIds.map((id) => {
+      const row = appRows.find((item) => String(item.appId) === id);
+      return {
+        appId: id,
+        appName:
+          settings?.apps.find((app) => app.appId === id)?.appName ||
+          `Application ${id}`,
+        visitors: Number(row?.visitors ?? 0),
+        events: Number(row?.events ?? 0),
+      };
+    });
     const dailyMap = new Map(
       dailyRows.map((row) => [
         new Date(Number(row.day)).toISOString().slice(0, 10),
@@ -199,12 +296,7 @@ export async function getPendoAnalytics(
     let featureMetrics: FeatureMetric[] = [];
     let featureError: string | undefined;
     try {
-      featureMetrics = await features(
-        appId,
-        currentStart,
-        current.visitors,
-        refresh,
-      );
+      featureMetrics = await features(apps, currentStart, refresh);
     } catch (error) {
       console.error("Pendo feature query failed:", error);
       featureError =
@@ -212,10 +304,8 @@ export async function getPendoAnalytics(
     }
     const result: AnalyticsSnapshot = {
       ...empty,
-      appName:
-        settings?.appName ||
-        process.env.PENDO_APP_NAME ||
-        `Application ${appId}`,
+      appName,
+      apps,
       dailyActiveUsers: daily.at(-1)?.visitors ?? 0,
       weeklyActiveUsers: current.visitors,
       previousWeeklyActiveUsers: previous.visitors,

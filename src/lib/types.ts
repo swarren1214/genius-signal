@@ -33,6 +33,7 @@ export interface UsagePoint {
 }
 
 export interface FeatureMetric {
+  appId: string;
   id: string;
   name: string;
   visitors: number;
@@ -40,8 +41,17 @@ export interface FeatureMetric {
   adoption: number | null;
 }
 
+export interface AppCoverage {
+  appId: string;
+  appName: string;
+  visitors: number;
+  events: number;
+}
+
 export interface AnalyticsSnapshot {
   appId: string;
+  appIds?: string[];
+  apps?: AppCoverage[];
   appName: string;
   startDate: string;
   endDate: string;

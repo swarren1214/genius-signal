@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getNewsFeed } from "@/lib/data/news";
 import { getBrandSignals } from "@/lib/data/sentiment";
+import { NEWS_WINDOW_DAYS } from "@/lib/services/news-quality";
 
 export const dynamic = "force-dynamic";
 
@@ -62,7 +63,7 @@ export default async function SentimentPage() {
                 </div>
               </div>
               <p className="text-[10px] text-muted-foreground">
-                {signal.articles.length} articles · last 30 days
+                {signal.articles.length} articles · last {NEWS_WINDOW_DAYS} days
                 {signal.delta !== null
                   ? ` · ${signal.delta > 0 ? "+" : ""}${signal.delta} points since the previous stored day`
                   : " · no prior-day comparison yet"}

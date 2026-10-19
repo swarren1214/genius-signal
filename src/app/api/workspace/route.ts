@@ -16,6 +16,12 @@ import { getNewsFeed } from "@/lib/data/news";
 import { getDigestState } from "@/lib/services/ai";
 import type { Digest, WorkspaceAction } from "@/lib/types";
 import { sendInsightToSlack } from "@/lib/services/alerts";
+import {
+  pendoAppIdSchema,
+  pendoAppSchema,
+  pendoScopeSchema,
+  scopeAppIds,
+} from "@/lib/pendo-scope";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -53,10 +59,8 @@ const schema = z.discriminatedUnion("action", [
   z.object({ action: z.literal("delete-brand"), id }),
   z.object({
     action: z.literal("save-pendo-settings"),
-    appId: z
-      .string()
-      .regex(/^-?\d+$/)
-      .max(30),
+    appId: pendoAppIdSchema.optional(),
+    apps: z.array(pendoAppSchema).min(1).max(8).optional(),
     appName: z.string().trim().max(150),
   }),
   z.object({ action: z.literal("send-alert"), insightId: id }),
@@ -87,7 +91,11 @@ export function GET(request: Request) {
   if (resource === "reports")
     return NextResponse.json({ items: listRecords("report") });
   if (resource === "settings")
-    return NextResponse.json({ brands: getBrands(), audit: getAuditLog() });
+    return NextResponse.json({
+      brands: getBrands(),
+      pendoScope: readRecord("settings", "pendo"),
+      audit: getAuditLog(),
+    });
   return NextResponse.json({ error: "Unknown resource." }, { status: 400 });
 }
 
@@ -192,11 +200,15 @@ function removeBrand(input: InputFor<"delete-brand">) {
 }
 
 function savePendoScope(input: InputFor<"save-pendo-settings">) {
-  writeRecord("settings", "pendo", {
-    appId: input.appId,
+  const scope = pendoScopeSchema.parse({
+    apps: input.apps ?? [{ appId: input.appId, appName: input.appName }],
     appName: input.appName,
   });
-  recordAudit("pendo.scope.updated", input.appId);
+  writeRecord("settings", "pendo", {
+    ...scope,
+    appId: scopeAppIds(scope).join(","),
+  });
+  recordAudit("pendo.scope.updated", scopeAppIds(scope).join(","));
   return NextResponse.json({ ok: true });
 }
 

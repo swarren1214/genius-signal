@@ -5,6 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { getNewsFeed } from "@/lib/data/news";
 import { getBrandSignals } from "@/lib/data/sentiment";
+import { NEWS_WINDOW_DAYS } from "@/lib/services/news-quality";
 
 export const dynamic = "force-dynamic";
 
@@ -40,7 +41,7 @@ export default async function CompetitorsPage() {
                     {signal.articles.length}
                   </p>
                   <p className="mt-1 text-[10px] text-muted-foreground">
-                    Retrieved articles · 30 days
+                    Retrieved articles · {NEWS_WINDOW_DAYS} days
                   </p>
                 </div>
                 <div>

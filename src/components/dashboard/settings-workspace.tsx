@@ -22,6 +22,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { postJson } from "@/lib/client-api";
+import { pendoScopeSchema } from "@/lib/pendo-scope";
 import type {
   AnalyticsSnapshot,
   Brand,
@@ -32,7 +33,7 @@ import type {
 interface SettingsProps {
   brands: Brand[];
   sources: { name: string; health: SourceHealth }[];
-  appId: string;
+  apps: { appId: string; appName: string }[];
   appName: string;
   actions: WorkspaceAction[];
   reports: { id: string; createdAt: string; analytics: AnalyticsSnapshot }[];
@@ -43,7 +44,7 @@ interface SettingsProps {
 export function SettingsWorkspace({
   brands,
   sources,
-  appId,
+  apps,
   appName,
   actions,
   reports,
@@ -58,8 +59,11 @@ export function SettingsWorkspace({
   const [name, setName] = useState("");
   const [terms, setTerms] = useState("");
   const [own, setOwn] = useState(false);
-  const [scopeId, setScopeId] = useState(appId);
+  const [scopeApps, setScopeApps] = useState(
+    apps.map((app, index) => ({ ...app, key: `initial-${index}` })),
+  );
   const [scopeName, setScopeName] = useState(appName);
+  const [scopeError, setScopeError] = useState("");
   async function operation(body: unknown, message: string) {
     setPending(true);
     setStatus("");
@@ -130,36 +134,120 @@ export function SettingsWorkspace({
         <CardHeader>
           <CardTitle>Pendo application scope</CardTitle>
           <CardDescription>
-            Every event query uses this application ID. Changing the scope does
-            not estimate or combine data from other apps.
+            Only explicitly selected applications are queried. Visitor and
+            account totals are distinct across the selected apps, not added
+            together. Audience: all visitors in those apps; no customer-segment
+            filter is applied.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form
-            className="grid gap-4 sm:grid-cols-[1fr_1fr_auto]"
+            className="space-y-4"
             onSubmit={async (event) => {
               event.preventDefault();
+              const validated = pendoScopeSchema.safeParse({
+                apps: scopeApps.map(({ appId, appName }) => ({
+                  appId,
+                  appName,
+                })),
+                appName: scopeName,
+              });
+              if (!validated.success) {
+                setScopeError(
+                  validated.error.issues[0]?.message ??
+                    "Invalid application scope.",
+                );
+                return;
+              }
+              setScopeError("");
               await operation(
                 {
                   action: "save-pendo-settings",
-                  appId: scopeId,
+                  apps: scopeApps.map(({ appId, appName }) => ({
+                    appId,
+                    appName,
+                  })),
                   appName: scopeName,
                 },
-                "Application scope saved. Refresh to retrieve this app's metrics.",
+                "Explicit application coverage saved. Refresh to retrieve this scope's metrics.",
               );
             }}
           >
+            {scopeApps.map((app, index) => (
+              <div
+                key={app.key}
+                className="grid items-end gap-3 sm:grid-cols-[1fr_1fr_auto]"
+              >
+                <label className="block min-w-0 space-y-2 text-xs">
+                  <span>Application ID {index + 1}</span>
+                  <Input
+                    value={app.appId}
+                    onChange={(event) =>
+                      setScopeApps((current) =>
+                        current.map((item) =>
+                          item.key === app.key
+                            ? { ...item, appId: event.target.value }
+                            : item,
+                        ),
+                      )
+                    }
+                    required
+                    pattern="[1-9][0-9]*"
+                    inputMode="numeric"
+                  />
+                </label>
+                <label className="block min-w-0 space-y-2 text-xs">
+                  <span>Application label {index + 1}</span>
+                  <Input
+                    value={app.appName}
+                    onChange={(event) =>
+                      setScopeApps((current) =>
+                        current.map((item) =>
+                          item.key === app.key
+                            ? { ...item, appName: event.target.value }
+                            : item,
+                        ),
+                      )
+                    }
+                    maxLength={150}
+                  />
+                </label>
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  aria-label={`Remove application ${index + 1}`}
+                  title="Remove application"
+                  disabled={pending || scopeApps.length === 1}
+                  onClick={() => {
+                    setScopeApps((current) =>
+                      current.filter((item) => item.key !== app.key),
+                    );
+                    setScopeName("");
+                  }}
+                >
+                  <Trash2 className="size-4" />
+                </Button>
+              </div>
+            ))}
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              disabled={pending || scopeApps.length >= 8}
+              onClick={() => {
+                setScopeApps((current) => [
+                  ...current,
+                  { key: crypto.randomUUID(), appId: "", appName: "" },
+                ]);
+                setScopeName("");
+              }}
+            >
+              <Plus className="size-3.5" />
+              Add application
+            </Button>
             <label className="block space-y-2 text-xs">
-              <span>Application ID</span>
-              <Input
-                value={scopeId}
-                onChange={(event) => setScopeId(event.target.value)}
-                required
-                pattern="-?[0-9]+"
-              />
-            </label>
-            <label className="block space-y-2 text-xs">
-              <span>Display label</span>
+              <span>Coverage label</span>
               <Input
                 value={scopeName}
                 onChange={(event) => setScopeName(event.target.value)}
@@ -168,11 +256,16 @@ export function SettingsWorkspace({
             </label>
             <Button
               className="self-end"
-              disabled={pending || !scopeId}
+              disabled={pending || scopeApps.some((app) => !app.appId)}
               type="submit"
             >
               Save scope
             </Button>
+            {scopeError && (
+              <p role="alert" className="text-xs text-destructive">
+                {scopeError}
+              </p>
+            )}
           </form>
         </CardContent>
       </Card>

@@ -9,13 +9,16 @@
     "lint": "eslint",
     "test": "tsx --test src/lib/backend.test.ts"
   },
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "dependencies": {
     "@base-ui/react": "^1.8.0",
     "class-variance-authority": "^0.7.1",
     "cn": "^0.2.6",
     "fast-xml-parser": "^5.11.2",
     "framer-motion": "^13.2.0",
+    "html-to-text": "^10.0.1",
     "lucide-react": "^1.43.0",
     "next": "16.3.4",
     "next-themes": "^0.4.6",
@@ -28,6 +31,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "@types/html-to-text": "^9.0.4",
     "@types/node": "^24.19.2",
     "@types/react": "^19",
     "@types/react-dom": "^19",

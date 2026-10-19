@@ -2,6 +2,7 @@ import { SettingsWorkspace } from "@/components/dashboard/settings-workspace";
 import { getPendoAnalytics } from "@/lib/services/pendo-analytics";
 import { getNewsFeed } from "@/lib/data/news";
 import { getDigestState } from "@/lib/services/ai";
+import { resolvePendoScope } from "@/lib/pendo-scope";
 import {
   getAuditLog,
   getBrands,
@@ -18,6 +19,15 @@ export const dynamic = "force-dynamic";
 
 export default async function SettingsPage() {
   const [pendo, news] = await Promise.all([getPendoAnalytics(), getNewsFeed()]);
+  let scopeApps: { appId: string; appName: string }[];
+  try {
+    scopeApps = resolvePendoScope(readRecord("settings", "pendo"), {
+      appId: process.env.PENDO_APP_IDS ?? process.env.PENDO_APP_ID ?? "",
+      appName: process.env.PENDO_APP_NAME ?? "",
+    }).apps;
+  } catch {
+    scopeApps = [{ appId: "", appName: "" }];
+  }
   const alert = listRecords<{ deliveredAt: string }>("alert")[0];
   const slack: SourceHealth = process.env.SLACK_WEBHOOK_URL
     ? {
@@ -42,7 +52,7 @@ export default async function SettingsPage() {
   return (
     <SettingsWorkspace
       brands={getBrands()}
-      appId={pendo.appId}
+      apps={scopeApps}
       appName={pendo.appName}
       sources={[
         { name: "Pendo", health: pendo.health },
