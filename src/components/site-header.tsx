@@ -5,7 +5,6 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { Separator } from "@/components/ui/separator";
 import { Input } from "@/components/ui/input";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { navItems } from "@/lib/nav";
@@ -16,9 +15,10 @@ export function SiteHeader() {
   const title =
     navItems.find((item) => item.url === pathname)?.title ?? "Overview";
   return (
-    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background/95 px-4 backdrop-blur-md sm:gap-3 sm:px-8">
-      <SidebarTrigger className="-ml-1" />
-      <Separator orientation="vertical" className="mr-2 h-6" />
+    <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b border-border bg-background/95 pr-4 backdrop-blur-md sm:gap-3 sm:pr-8">
+      <div className="flex h-full w-16 shrink-0 items-center justify-center border-r border-border">
+        <SidebarTrigger />
+      </div>
 
       <div className="hidden items-center gap-3 text-xs sm:flex">
         <span className="text-muted-foreground">Workspace</span>
