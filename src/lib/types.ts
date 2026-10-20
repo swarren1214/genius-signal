@@ -3,6 +3,7 @@ export interface Brand {
   name: string;
   isOwnBrand?: boolean;
   newsSearchTerms: string[];
+  logoDomain?: string;
 }
 
 export interface NewsArticle {
@@ -24,6 +25,14 @@ export interface SourceHealth {
   status: "connected" | "unconfigured" | "unavailable" | "stale";
   fetchedAt: string | null;
   error?: string;
+}
+
+export interface BrandSearchStatus {
+  brandId: string;
+  query: string;
+  status: "succeeded" | "failed";
+  rawItems: number;
+  checkedAt: string;
 }
 
 export interface UsagePoint {

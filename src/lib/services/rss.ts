@@ -2,6 +2,8 @@ import { XMLParser } from "fast-xml-parser";
 import { getBrands } from "@/lib/database";
 import { convert } from "html-to-text";
 import { NEWS_WINDOW_DAYS } from "@/lib/services/news-quality";
+import { brandNewsQuery } from "@/lib/services/news-relevance";
+import type { BrandSearchStatus } from "@/lib/types";
 
 export interface FeedItem {
   title: string;
@@ -73,36 +75,47 @@ async function fetchFeed(url: string, name: string, refresh: boolean) {
 
 export async function fetchRestaurantRss(
   refresh = false,
-): Promise<{ items: FeedItem[]; providers: string[]; warnings: string[] }> {
-  const query = getBrands()
-    .flatMap((brand) => brand.newsSearchTerms.slice(0, 1))
-    .map((term) => `"${term}"`)
-    .join(" OR ");
-  if (!query) return { items: [], providers: [], warnings: [] };
-  const url = new URL("https://news.google.com/rss/search");
-  url.searchParams.set(
-    "q",
-    `(${query}) (restaurant OR POS OR payments) when:${NEWS_WINDOW_DAYS}d`,
-  );
-  url.searchParams.set("hl", "en-US");
-  url.searchParams.set("gl", "US");
-  url.searchParams.set("ceid", "US:en");
-  const feeds = [
-    ...tradeFeeds,
-    { name: "Google News RSS", url: url.toString() },
-  ];
+): Promise<{
+  items: FeedItem[];
+  providers: string[];
+  warnings: string[];
+  brandSearches: BrandSearchStatus[];
+}> {
+  const brands = getBrands();
+  if (!brands.length)
+    return { items: [], providers: [], warnings: [], brandSearches: [] };
+  const searches = brands.map((brand) => {
+    const url = new URL("https://news.google.com/rss/search");
+    url.searchParams.set("q", brandNewsQuery(brand, NEWS_WINDOW_DAYS));
+    url.searchParams.set("hl", "en-US");
+    url.searchParams.set("gl", "US");
+    url.searchParams.set("ceid", "US:en");
+    return { name: `Google News RSS: ${brand.name}`, url: url.toString() };
+  });
+  const feeds = [...tradeFeeds, ...searches];
   const results = await Promise.allSettled(
     feeds.map((feed) => fetchFeed(feed.url, feed.name, refresh)),
   );
   const items: FeedItem[] = [];
   const providers: string[] = [];
   const warnings: string[] = [];
+  const brandSearches: BrandSearchStatus[] = [];
   results.forEach((result, index) => {
+    if (index >= tradeFeeds.length)
+      brandSearches.push({
+        brandId: brands[index - tradeFeeds.length].id,
+        query: new URL(feeds[index].url).searchParams.get("q") ?? "",
+        status: result.status === "fulfilled" ? "succeeded" : "failed",
+        rawItems: result.status === "fulfilled" ? result.value.length : 0,
+        checkedAt: new Date().toISOString(),
+      });
     if (result.status === "fulfilled") {
-      providers.push(feeds[index].name);
+      providers.push(
+        index < tradeFeeds.length ? feeds[index].name : "Google News RSS",
+      );
       items.push(...result.value);
     } else warnings.push(`${feeds[index].name} could not be retrieved.`);
   });
   if (!providers.length) throw new Error("No RSS source could be retrieved.");
-  return { items, providers, warnings };
+  return { items, providers: [...new Set(providers)], warnings, brandSearches };
 }

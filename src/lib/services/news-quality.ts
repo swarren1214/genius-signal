@@ -1,5 +1,5 @@
 export const NEWS_WINDOW_DAYS = 14;
-export const NEWS_POLICY_VERSION = "market-news-v1";
+export const NEWS_POLICY_VERSION = "market-news-v4-targeted-coverage";
 
 interface Story {
   title: string;
@@ -18,10 +18,32 @@ const evergreenPatterns = [
 
 export function isTimelyNews(story: Story, now = Date.now()): boolean {
   const publishedAt = new Date(story.publishedAt).getTime();
+  const investmentResearch =
+    /simply wall st(?:reet)?|kalkine/i.test(story.source) ||
+    /\b(?:investment case|investment thesis|should you buy|fair value estimate)\b/i.test(
+      story.title,
+    );
+  const tradingNoise =
+    /\b(?:stock|stocks|shares|short interest|hedge funds?|price targets?|dividend|undervalued|general market|market story|buying momentum|technical analysis|price forecasts?)\b/i.test(
+      story.title,
+    );
+  const businessEvent =
+    /\b(?:announces?|launch(?:es|ed)?|unveil(?:s|ed)?|acqui(?:res?|sition)|merger|partners? with|partnership|outage|breach|funding|(?:reports?|posts?)\b.{0,35}\b(?:earnings|results))\b/i.test(
+      story.title,
+    );
+  const financialPreview =
+    /\b(?:nears earnings|upcoming fiscal|is the stock cheap|stock cheap|under the lens|market story)\b/i.test(
+      story.title,
+    );
+  const pricePerformance = /\b(?:market returns|price action|trading sessions?)\b/i.test(story.title);
   return (
+    !pricePerformance &&
     Number.isFinite(publishedAt) &&
     publishedAt <= now + 300000 &&
     publishedAt >= now - NEWS_WINDOW_DAYS * 86400000 &&
+    !investmentResearch &&
+    !financialPreview &&
+    (!tradingNoise || businessEvent) &&
     !evergreenPatterns.some((pattern) => pattern.test(story.title))
   );
 }

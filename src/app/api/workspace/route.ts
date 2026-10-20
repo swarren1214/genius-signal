@@ -16,6 +16,7 @@ import { getNewsFeed } from "@/lib/data/news";
 import { getDigestState } from "@/lib/services/ai";
 import type { Digest, WorkspaceAction } from "@/lib/types";
 import { sendInsightToSlack } from "@/lib/services/alerts";
+import { brandLogoDomain } from "@/lib/brand-logos";
 import {
   pendoAppIdSchema,
   pendoAppSchema,
@@ -31,6 +32,16 @@ const brandSchema = z.object({
   id: z.string().regex(/^[a-z0-9-]{1,60}$/),
   name: z.string().trim().min(1).max(150),
   isOwnBrand: z.boolean().optional(),
+  logoDomain: z
+    .string()
+    .trim()
+    .toLowerCase()
+    .max(253)
+    .refine(
+      (domain) => brandLogoDomain({ id: "", logoDomain: domain }) !== null,
+      "Enter a hostname without a URL path.",
+    )
+    .optional(),
   newsSearchTerms: z.array(z.string().trim().min(1).max(100)).min(1).max(10),
 });
 const schema = z.discriminatedUnion("action", [

@@ -2,6 +2,9 @@ import { getBrands, listRecords, writeRecord } from "@/lib/database";
 import type { Brand, NewsArticle } from "@/lib/types";
 import { NEWS_POLICY_VERSION } from "@/lib/services/news-quality";
 
+export const MIN_TONE_ARTICLES = 3;
+export const MIN_TONE_PUBLISHERS = 2;
+
 export interface BrandSignal {
   brand: Brand;
   score: number | null;
@@ -9,6 +12,8 @@ export interface BrandSignal {
   positive: number;
   negative: number;
   neutral: number;
+  publisherCount: number;
+  toneReason: string | null;
   articles: NewsArticle[];
 }
 
@@ -41,7 +46,13 @@ export function getBrandSignals(articles: NewsArticle[]): BrandSignal[] {
     const related = articles.filter((article) =>
       article.brands.includes(brand.id),
     );
-    const score = calculateNewsScore(related);
+    const publisherCount = new Set(
+      related.map((article) => article.source.trim().toLowerCase()),
+    ).size;
+    const sufficient =
+      related.length >= MIN_TONE_ARTICLES &&
+      publisherCount >= MIN_TONE_PUBLISHERS;
+    const score = sufficient ? calculateNewsScore(related) : null;
     const previous = history
       .filter(
         (item) =>
@@ -61,6 +72,12 @@ export function getBrandSignals(articles: NewsArticle[]): BrandSignal[] {
     return {
       brand,
       score,
+      publisherCount,
+      toneReason: sufficient
+        ? null
+        : related.length
+          ? `Requires at least ${MIN_TONE_ARTICLES} stories from ${MIN_TONE_PUBLISHERS} publishers; currently ${related.length} from ${publisherCount}.`
+          : "No qualifying coverage in the selected window.",
       delta: score !== null && previous ? score - previous.score : null,
       positive: related.filter((article) => article.sentiment === "positive")
         .length,

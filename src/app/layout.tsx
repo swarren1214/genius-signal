@@ -49,6 +49,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
                   {children}
                   <footer className="flex flex-wrap items-center justify-between gap-3 pt-2 font-mono text-[9px] text-muted-foreground">
                     <span>GENIUS PRODUCT / RESTAURANT VERTICAL</span>
+                    <a
+                      href="https://www.logo.dev"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="transition-colors hover:text-foreground"
+                    >
+                      Logos by Logo.dev
+                    </a>
                     <span>
                       Retrieved sources · explicit source health · no synthetic
                       metrics

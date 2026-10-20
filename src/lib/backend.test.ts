@@ -22,6 +22,7 @@ import { GET as ingestGet } from "@/app/api/ingest/route";
 import { proxy } from "@/proxy";
 import {
   canonicalStoryUrl,
+  NEWS_POLICY_VERSION,
   isTimelyNews,
   selectNewsStories,
 } from "@/lib/services/news-quality";
@@ -32,6 +33,12 @@ import {
   scopeAppIds,
 } from "@/lib/pendo-scope";
 import { getNewsFeed } from "@/lib/data/news";
+import { brandLogoDomain, brandLogoUrl, logoDomainPattern } from "@/lib/brand-logos";
+import {
+  brandNewsQuery,
+  matchArticleBrands,
+} from "@/lib/services/news-relevance";
+import { defaultBrands } from "@/lib/brands";
 
 const directory = mkdtempSync(join(tmpdir(), "signal-tests-"));
 process.env.SIGNAL_DB_PATH = join(directory, "workspace.sqlite");
@@ -55,6 +62,135 @@ test("brand configuration contains names and terms, not seeded scores", () => {
     brands.every(
       (brand) => brand.newsSearchTerms.length > 0 && !("sentiment" in brand),
     ),
+  );
+});
+
+test("logo lookups use explicit company domains and only public tokens", () => {
+  const htmlPattern = new RegExp(`^(?:${logoDomainPattern})$`, "v");
+  assert.equal(htmlPattern.test("my-brand.example.com"), true);
+  assert.equal(htmlPattern.test("https://wrong.example/path"), false);
+  for (const brand of getBrands()) assert.ok(brandLogoDomain(brand));
+  assert.equal(brandLogoDomain({ id: "square" }), "squareup.com");
+  assert.equal(
+    brandLogoDomain({ id: "custom", logoDomain: "custom.example.com" }),
+    "custom.example.com",
+  );
+  assert.equal(
+    brandLogoDomain({ id: "custom", logoDomain: "https://evil.test/path" }),
+    null,
+  );
+  assert.equal(brandLogoUrl({ id: "toast" }), null);
+  assert.equal(brandLogoUrl({ id: "toast" }, "sk_private_test"), null);
+  const url = new URL(brandLogoUrl({ id: "toast" }, "pk_public_test")!);
+  assert.equal(url.hostname, "img.logo.dev");
+  assert.equal(url.pathname, "/toasttab.com");
+  assert.equal(url.searchParams.get("fallback"), "404");
+});
+
+test("brand logo domains are validated and persisted with watchlist edits", async () => {
+  const brand = {
+    id: "logo-test",
+    name: "Logo test",
+    newsSearchTerms: ["Logo test"],
+    logoDomain: "logo.example.com",
+  };
+  assert.equal(
+    (await workspacePost(request({ action: "save-brand", brand }))).status,
+    200,
+  );
+  assert.equal(
+    getBrands().find((item) => item.id === brand.id)?.logoDomain,
+    brand.logoDomain,
+  );
+  assert.equal(
+    (
+      await workspacePost(
+        request({
+          action: "save-brand",
+          brand: { ...brand, logoDomain: "javascript:alert(1)" },
+        }),
+      )
+    ).status,
+    400,
+  );
+  deleteRecord("brand", brand.id);
+});
+
+test("competitor searches use every alias and matching excludes namesakes", () => {
+  const clover = defaultBrands.find((brand) => brand.id === "clover")!;
+  assert.match(brandNewsQuery(clover, 14), /Clover Network/);
+  assert.match(brandNewsQuery(clover, 14), /"Clover"/);
+  assert.deepEqual(
+    matchArticleBrands(
+      "Global Payments introduces Genius for restaurant payments",
+      defaultBrands,
+    ),
+    ["genius"],
+  );
+  assert.deepEqual(
+    matchArticleBrands("Lightspeed expands restaurant payments", defaultBrands),
+    ["lightspeed"],
+  );
+  assert.deepEqual(
+    matchArticleBrands(
+      "Square launches restaurant checkout tools",
+      defaultBrands,
+    ),
+    ["square"],
+  );
+  assert.deepEqual(
+    matchArticleBrands("SpotOn unveils restaurant software", defaultBrands),
+    ["spoton"],
+  );
+  for (const text of [
+    "Town Square opens a new restaurant",
+    "Restaurant serves French toast",
+    "Restaurant fire burns 150 square meters of roof",
+    "Japanese restaurant opens at Lincoln Square North",
+    "Natalie Merchant at the Chicago Theater - Times Square Chronicles",
+    "Square Tech explores stablecoin payments",
+    "Clover Health Medicare network plans",
+    "Global Payments explores GENIUS Act stablecoin rules",
+    "A restaurant earns a spot on a national dining list",
+  ])
+    assert.deepEqual(matchArticleBrands(text, defaultBrands), []);
+});
+
+test("small or single-publisher samples cannot appear as strong brand scores", () => {
+  const item = {
+    id: "sample-test",
+    url: "https://publisher.test/report",
+    source: "Publisher",
+    title: "Toast launches restaurant payment integration",
+    snippet: "Launch coverage",
+    publishedAt: new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
+    brands: ["toast"],
+    topic: "Product Launch",
+    sentiment: "positive" as const,
+    sentimentScore: 1,
+    whyItMatters: "",
+  };
+  assert.equal(
+    getBrandSignals([item]).find((signal) => signal.brand.id === "toast")
+      ?.score,
+    null,
+  );
+  assert.equal(
+    getBrandSignals([
+      item,
+      { ...item, id: "two" },
+      { ...item, id: "three" },
+    ]).find((signal) => signal.brand.id === "toast")?.score,
+    null,
+  );
+  assert.equal(
+    getBrandSignals([
+      item,
+      { ...item, id: "two", source: "Independent Publisher" },
+      { ...item, id: "three" },
+    ]).find((signal) => signal.brand.id === "toast")?.score,
+    100,
   );
 });
 
@@ -96,6 +232,60 @@ test("news quality excludes evergreen reviews, guides, stale and future stories"
     publishedAt: "2026-10-18T12:00:00Z",
   };
   assert.equal(isTimelyNews(story, now), true);
+  assert.equal(
+    isTimelyNews(
+      {
+        ...story,
+        title:
+          "Lightspeed Commerce Exceeds Market Returns: Some Facts to Consider",
+      },
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isTimelyNews(
+      {
+        ...story,
+        source: "Simply Wall Street",
+        title: "Could AI Alter The Investment Case For Lightspeed Commerce?",
+      },
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isTimelyNews(
+      {
+        ...story,
+        title:
+          "Lightspeed Commerce (TSX:LSPD) Nears Earnings, Is The Stock Cheap?",
+      },
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isTimelyNews(
+      {
+        ...story,
+        title:
+          "Lightspeed Commerce Upcoming Fiscal Q2 Results Put Merchant Growth Under the Lens",
+      },
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isTimelyNews(
+      {
+        ...story,
+        title: "Lightspeed reports quarterly results and merchant growth",
+      },
+      now,
+    ),
+    true,
+  );
   for (const title of [
     "Best Restaurant POS Systems in 2026",
     "TouchBistro POS Review and Pricing Plans in 2026",
@@ -113,6 +303,24 @@ test("news quality excludes evergreen reviews, guides, stale and future stories"
   assert.equal(
     isTimelyNews(
       { ...story, title: "Toast wins best restaurant technology award" },
+      now,
+    ),
+    true,
+  );
+  assert.equal(
+    isTimelyNews(
+      { ...story, title: "Lightspeed Commerce stock closes down 3.4 percent" },
+      now,
+    ),
+    false,
+  );
+  assert.equal(
+    isTimelyNews(
+      {
+        ...story,
+        title:
+          "Lightspeed announces restaurant payments partnership as shares rise",
+      },
       now,
     ),
     true,
@@ -148,6 +356,7 @@ test("cached evergreen articles cannot bypass the current news policy", async ()
   };
   writeRecord("article", article.id, article);
   writeRecord("source", "news", {
+    policy: NEWS_POLICY_VERSION,
     status: "connected",
     isLive: true,
     fetchedAt: new Date().toISOString(),
@@ -474,21 +683,24 @@ test("sentiment changes do not mix different news selection policies", () => {
     date: previousDate,
     score: 0,
   });
+  const article = {
+    id: "policy-evidence",
+    url: "https://publisher.test/launch",
+    source: "Publisher",
+    title: "Toast launches restaurant payment integration",
+    snippet: "Launch coverage",
+    publishedAt: new Date().toISOString(),
+    fetchedAt: new Date().toISOString(),
+    brands: ["toast"],
+    topic: "Product Launch",
+    sentiment: "positive" as const,
+    sentimentScore: 1,
+    whyItMatters: "",
+  };
   const articles = [
-    {
-      id: "policy-evidence",
-      url: "https://publisher.test/launch",
-      source: "Publisher",
-      title: "Toast launches restaurant payment integration",
-      snippet: "Launch coverage",
-      publishedAt: new Date().toISOString(),
-      fetchedAt: new Date().toISOString(),
-      brands: ["toast"],
-      topic: "Product Launch",
-      sentiment: "positive" as const,
-      sentimentScore: 1,
-      whyItMatters: "",
-    },
+    article,
+    { ...article, id: "policy-evidence-2", source: "Another publisher" },
+    { ...article, id: "policy-evidence-3" },
   ];
   assert.equal(
     getBrandSignals(articles).find((signal) => signal.brand.id === "toast")

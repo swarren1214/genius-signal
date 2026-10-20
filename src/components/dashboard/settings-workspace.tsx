@@ -23,6 +23,8 @@ import {
 } from "@/components/ui/dialog";
 import { postJson } from "@/lib/client-api";
 import { pendoScopeSchema } from "@/lib/pendo-scope";
+import { BrandLogo } from "@/components/brand-logo";
+import { brandLogoDomain, logoDomainPattern } from "@/lib/brand-logos";
 import type {
   AnalyticsSnapshot,
   Brand,
@@ -58,6 +60,7 @@ export function SettingsWorkspace({
   const [editing, setEditing] = useState<Brand | null>(null);
   const [name, setName] = useState("");
   const [terms, setTerms] = useState("");
+  const [logoDomain, setLogoDomain] = useState("");
   const [own, setOwn] = useState(false);
   const [scopeApps, setScopeApps] = useState(
     apps.map((app, index) => ({ ...app, key: `initial-${index}` })),
@@ -83,6 +86,7 @@ export function SettingsWorkspace({
     setEditing(brand);
     setName(brand?.name ?? "");
     setTerms(brand?.newsSearchTerms.join(", ") ?? "");
+    setLogoDomain(brand ? (brandLogoDomain(brand) ?? "") : "");
     setOwn(Boolean(brand?.isOwnBrand));
     setBrandOpen(true);
   }
@@ -289,14 +293,17 @@ export function SettingsWorkspace({
               className="flex items-start justify-between gap-3 border-b border-border pb-4"
             >
               <div>
-                <h3 className="text-sm">
-                  {brand.name}
-                  {brand.isOwnBrand && (
-                    <span className="ml-2 text-[10px] text-primary">
-                      Own brand
-                    </span>
-                  )}
-                </h3>
+                <div className="flex items-center gap-2">
+                  <BrandLogo brand={brand} className="size-8" />
+                  <h3 className="text-sm">
+                    {brand.name}
+                    {brand.isOwnBrand && (
+                      <span className="ml-2 text-[10px] text-primary">
+                        Own brand
+                      </span>
+                    )}
+                  </h3>
+                </div>
                 <p className="mt-1 text-[11px] leading-5 text-muted-foreground">
                   {brand.newsSearchTerms.join(", ")}
                 </p>
@@ -495,6 +502,7 @@ export function SettingsWorkspace({
                     id,
                     name,
                     isOwnBrand: own,
+                    logoDomain: logoDomain.trim() || undefined,
                     newsSearchTerms: terms
                       .split(",")
                       .map((term) => term.trim())
@@ -521,6 +529,19 @@ export function SettingsWorkspace({
                 value={terms}
                 onChange={(event) => setTerms(event.target.value)}
                 required
+              />
+            </label>
+            <label className="block space-y-2 text-xs">
+              <span>Logo domain</span>
+              <Input
+                value={logoDomain}
+                onChange={(event) => setLogoDomain(event.target.value)}
+                placeholder="example.com"
+                autoCapitalize="none"
+                autoCorrect="off"
+                spellCheck={false}
+                maxLength={253}
+                pattern={logoDomainPattern}
               />
             </label>
             <label className="flex items-center gap-2 text-xs">

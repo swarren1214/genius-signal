@@ -130,7 +130,8 @@ export default async function OverviewPage() {
             </div>
             <p className="text-xs leading-5 text-muted-foreground">
               {own?.score === null || !own
-                ? "There is not enough retrieved coverage to calculate a score."
+                ? (own?.toneReason ??
+                  "There is not enough retrieved coverage to calculate a score.")
                 : "Calculated from the lexical tone of retrieved news. This is not customer NPS or a blend of review and social sources."}
             </p>
             <Link

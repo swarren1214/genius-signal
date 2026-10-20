@@ -1,5 +1,5 @@
 import { newsConfig, isNewsConfigured } from "@/lib/config";
-import type { NewsArticle } from "@/lib/types";
+import type { BrandSearchStatus, NewsArticle } from "@/lib/types";
 import { getBrands } from "@/lib/database";
 import { createHash } from "node:crypto";
 import Sentiment from "sentiment";
@@ -9,6 +9,7 @@ import {
   NEWS_WINDOW_DAYS,
   selectNewsStories,
 } from "@/lib/services/news-quality";
+import { matchArticleBrands } from "@/lib/services/news-relevance";
 
 const NEWS_API_BASE_URL = "https://newsapi.org/v2";
 
@@ -73,16 +74,7 @@ interface NewsApiResponse {
 }
 
 function matchBrands(text: string): string[] {
-  const lower = text.toLowerCase();
-  const industryContext =
-    /\b(?:restaurants?|foodservice|hospitality|payments?|pos)\b/i.test(text);
-  return getBrands()
-    .filter((b) =>
-      [...b.newsSearchTerms, ...(industryContext ? [b.name] : [])].some((t) =>
-        lower.includes(t.toLowerCase()),
-      ),
-    )
-    .map((b) => b.id);
+  return matchArticleBrands(text, getBrands());
 }
 
 function normalizeText(text: string): string {
@@ -99,7 +91,12 @@ function hasNoiseTerm(text: string): boolean {
   return IRRELEVANT_TERMS.some((term) => normalized.includes(term));
 }
 
-function isRelevantArticle(text: string): boolean {
+export function isRelevantArticle(text: string): boolean {
+  if (
+    /\bretailers?|retail stores?\b/i.test(text) &&
+    !/\brestaurants?|foodservice|hospitality|dining|ordering\b/i.test(text)
+  )
+    return false;
   const brands = matchBrands(text);
   const hasRestaurantContext = hasRestaurantPosContext(text);
 
@@ -118,7 +115,11 @@ function guessTopic(text: string): string {
   const lower = text.toLowerCase();
   if (/outage|down for|service disruption|breach/.test(lower))
     return "Outage/Incident";
-  if (/raises?\s|funding|valuation|acquisition|acquires?\b/.test(lower))
+  if (
+    /raises? (?:funding|capital)|funding|valuation|acquisition|acquires?\b/.test(
+      lower,
+    )
+  )
     return "Funding";
   if (/partners?|partnership|integrat/.test(lower)) return "Partnership";
   if (/launch|unveils?|announces? new|rolls? out/.test(lower))
@@ -178,12 +179,18 @@ function buildQuery(): string {
 export async function fetchRestaurantNews(
   pageSize = 100,
   refresh = false,
-): Promise<{ articles: NewsArticle[]; provider: string; warnings?: string[] }> {
+): Promise<{
+  articles: NewsArticle[];
+  provider: string;
+  warnings?: string[];
+  brandSearches?: BrandSearchStatus[];
+}> {
   if (!getBrands().length)
     return { articles: [], provider: "No tracked brands" };
   const candidates: NewsArticle[] = [];
   const providers: string[] = [];
   const warnings: string[] = [];
+  let brandSearches: BrandSearchStatus[] = [];
   if (isNewsConfigured) {
     try {
       const url = new URL(`${NEWS_API_BASE_URL}/everything`);
@@ -249,6 +256,7 @@ export async function fetchRestaurantNews(
   }
   try {
     const rss = await fetchRestaurantRss(refresh);
+    brandSearches = rss.brandSearches;
     const articles = selectNewsStories(
       rss.items
         .filter((article) =>
@@ -267,5 +275,6 @@ export async function fetchRestaurantNews(
     articles: selectNewsStories(candidates),
     provider: providers.join(" + "),
     warnings,
+    brandSearches,
   };
 }

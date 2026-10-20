@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { getNewsFeed } from "@/lib/data/news";
 import { getBrandSignals } from "@/lib/data/sentiment";
 import { NEWS_WINDOW_DAYS } from "@/lib/services/news-quality";
+import { BrandLogo } from "@/components/brand-logo";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +26,10 @@ export default async function SentimentPage() {
         {signals.map((signal) => (
           <Card key={signal.brand.id} className="shadow-none">
             <CardHeader className="flex flex-row items-center justify-between">
-              <CardTitle>{signal.brand.name}</CardTitle>
+              <div className="flex min-w-0 items-center gap-3">
+                <BrandLogo brand={signal.brand} />
+                <CardTitle>{signal.brand.name}</CardTitle>
+              </div>
               {signal.brand.isOwnBrand && (
                 <Badge variant="secondary">Own brand</Badge>
               )}
@@ -33,7 +37,7 @@ export default async function SentimentPage() {
             <CardContent className="space-y-4">
               {signal.score === null ? (
                 <p className="flex h-32 items-center justify-center text-xs text-muted-foreground">
-                  No retrieved coverage. Score unavailable.
+                  {signal.toneReason ?? "Score unavailable."}
                 </p>
               ) : (
                 <SentimentGauge score={signal.score} label="News tone, 0–100" />
@@ -93,7 +97,8 @@ export default async function SentimentPage() {
             A standard sentiment lexicon classifies each retrieved headline and
             available summary as positive, neutral, or negative. The score is
             the mean of those labels, mapped to 100, 50, and 0 respectively. A
-            brand with no retrieved articles has no score.
+            score is displayed only with at least three stories from two
+            publishers. Smaller samples remain unscored.
           </p>
           <p>
             This is a news-tone estimate, not NPS or a measure of customer
