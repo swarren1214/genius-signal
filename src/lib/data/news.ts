@@ -10,7 +10,7 @@ import {
   listRecords,
   readRecord,
   writeRecord,
-} from "@/lib/database";
+} from "@/lib/store";
 
 export interface NewsResult {
   articles: NewsArticle[];

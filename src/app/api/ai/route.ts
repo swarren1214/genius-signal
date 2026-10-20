@@ -3,7 +3,7 @@ import { z } from "zod";
 import { checkWriteOrigin, parseBody, RequestTooLargeError } from "@/lib/api";
 import { isAiConfigured } from "@/lib/config";
 import { answerQuestion, generateDigest } from "@/lib/services/ai";
-import { readRecord, writeRecord } from "@/lib/database";
+import { readRecord, writeRecord } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

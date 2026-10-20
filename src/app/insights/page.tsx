@@ -2,7 +2,7 @@ import {
   InsightsWorkspace,
   type EvidenceSource,
 } from "@/components/dashboard/insights-workspace";
-import { listRecords } from "@/lib/database";
+import { listRecords } from "@/lib/store";
 import { getDigestState } from "@/lib/services/ai";
 import type {
   AnalyticsSnapshot,

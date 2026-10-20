@@ -3,7 +3,7 @@ import { createHash, timingSafeEqual } from "node:crypto";
 import { getPendoAnalytics } from "@/lib/services/pendo-analytics";
 import { getNewsFeed } from "@/lib/data/news";
 import { getBrandSignals } from "@/lib/data/sentiment";
-import { recordAudit, writeRecord } from "@/lib/database";
+import { recordAudit, writeRecord } from "@/lib/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

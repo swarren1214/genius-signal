@@ -8,7 +8,7 @@ import {
   getBrands,
   listRecords,
   readRecord,
-} from "@/lib/database";
+} from "@/lib/store";
 import type {
   AnalyticsSnapshot,
   SourceHealth,

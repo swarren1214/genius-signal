@@ -95,7 +95,7 @@ export function SettingsWorkspace({
       <PageHero
         eyebrow="Workspace administration"
         title="Configure the sources behind your decisions."
-        description="Persisted watchlists, application scope, source health, saved snapshots, and workspace actions."
+        description="Temporary watchlists, application scope, source health, snapshots, and workspace actions."
         actions={
           <Button
             variant="secondary"
@@ -278,7 +278,7 @@ export function SettingsWorkspace({
           <div>
             <CardTitle>Tracked brands</CardTitle>
             <CardDescription>
-              Persisted names and exact search terms used for ingestion.
+              Temporary names and exact search terms used for ingestion.
             </CardDescription>
           </div>
           <Button size="sm" variant="secondary" onClick={() => edit(null)}>
@@ -427,7 +427,7 @@ export function SettingsWorkspace({
         <CardHeader>
           <CardTitle>Audit log</CardTitle>
           <CardDescription>
-            Successful persisted workspace operations.
+            Recent operations on this server instance.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -466,8 +466,8 @@ export function SettingsWorkspace({
         {authenticated
           ? "HTTP authentication is configured for this single-workspace deployment."
           : "Local access only. Network access is blocked until SIGNAL_AUTH_USER and SIGNAL_AUTH_PASSWORD are configured."}{" "}
-        SQLite storage requires a persistent server volume; individual user
-        roles are not configured.
+        Changes are temporary, reset on restart, and are not shared across server
+        instances. Individual user roles are not configured.
       </p>
       {status && (
         <output className="block text-xs text-muted-foreground">

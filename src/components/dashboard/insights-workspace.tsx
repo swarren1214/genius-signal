@@ -369,7 +369,7 @@ export function InsightsWorkspace({
         <CardHeader>
           <CardTitle>Workspace actions</CardTitle>
           <p className="text-xs text-muted-foreground">
-            Persisted actions and completion state
+            Temporary actions and completion state
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -426,7 +426,7 @@ export function InsightsWorkspace({
           <DialogHeader>
             <DialogTitle>Create product action</DialogTitle>
             <DialogDescription>
-              Saved to the shared workspace database and audit log.
+              Kept temporarily on this server instance. Not saved across restarts.
             </DialogDescription>
           </DialogHeader>
           <form

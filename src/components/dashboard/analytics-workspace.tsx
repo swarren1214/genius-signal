@@ -46,7 +46,7 @@ export function AnalyticsWorkspace({
       setStatus(
         action === "refresh"
           ? "Refresh completed."
-          : "Snapshot saved to the workspace database.",
+          : "Snapshot kept temporarily on this server instance.",
       );
       router.refresh();
     } catch (error) {

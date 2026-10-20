@@ -1,4 +1,4 @@
-import { getBrands, listRecords, writeRecord } from "@/lib/database";
+import { getBrands, listRecords, writeRecord } from "@/lib/store";
 import type { Brand, NewsArticle } from "@/lib/types";
 import { NEWS_POLICY_VERSION } from "@/lib/services/news-quality";
 

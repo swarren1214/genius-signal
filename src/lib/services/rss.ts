@@ -1,5 +1,5 @@
 import { XMLParser } from "fast-xml-parser";
-import { getBrands } from "@/lib/database";
+import { getBrands } from "@/lib/store";
 import { convert } from "html-to-text";
 import { NEWS_WINDOW_DAYS } from "@/lib/services/news-quality";
 import { brandNewsQuery } from "@/lib/services/news-relevance";

@@ -3,7 +3,7 @@ import { zodTextFormat } from "openai/helpers/zod";
 import { z } from "zod";
 import { randomUUID } from "node:crypto";
 import { aiConfig, isAiConfigured } from "@/lib/config";
-import { listRecords, writeRecord, recordAudit } from "@/lib/database";
+import { listRecords, writeRecord, recordAudit } from "@/lib/store";
 import { getPendoAnalytics } from "@/lib/services/pendo-analytics";
 import { getNewsFeed } from "@/lib/data/news";
 import type { Digest, SourceHealth } from "@/lib/types";

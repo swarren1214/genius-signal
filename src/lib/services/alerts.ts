@@ -1,4 +1,4 @@
-import { listRecords, recordAudit, writeRecord } from "@/lib/database";
+import { listRecords, recordAudit, writeRecord } from "@/lib/store";
 import { randomUUID } from "node:crypto";
 import type { Digest } from "@/lib/types";
 

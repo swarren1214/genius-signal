@@ -1,18 +1,15 @@
 import assert from "node:assert/strict";
 import { after, test } from "node:test";
-import { mkdtempSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { NextRequest } from "next/server";
 import {
-  closeDatabase,
+  resetWorkspace,
   deleteRecord,
   getAuditLog,
   getBrands,
   listRecords,
   readRecord,
   writeRecord,
-} from "@/lib/database";
+} from "@/lib/store";
 import { calculateNewsScore, getBrandSignals } from "@/lib/data/sentiment";
 import { classifySentiment } from "@/lib/services/news";
 import { changePercent, eventSource } from "@/lib/services/pendo-analytics";
@@ -40,12 +37,8 @@ import {
 } from "@/lib/services/news-relevance";
 import { defaultBrands } from "@/lib/brands";
 
-const directory = mkdtempSync(join(tmpdir(), "signal-tests-"));
-process.env.SIGNAL_DB_PATH = join(directory, "workspace.sqlite");
-after(() => {
-  closeDatabase();
-  rmSync(directory, { recursive: true, force: true });
-});
+resetWorkspace();
+after(() => resetWorkspace());
 
 function request(body: unknown, origin = "http://localhost:3000") {
   return new Request("http://localhost:3000/api/workspace", {
@@ -87,7 +80,7 @@ test("logo lookups use explicit company domains and only public tokens", () => {
   assert.equal(url.searchParams.get("fallback"), "404");
 });
 
-test("brand logo domains are validated and persisted with watchlist edits", async () => {
+test("brand logo domains are validated and retained with temporary watchlist edits", async () => {
   const brand = {
     id: "logo-test",
     name: "Logo test",
@@ -194,13 +187,23 @@ test("small or single-publisher samples cannot appear as strong brand scores", (
   );
 });
 
-test("SQLite records survive connection restart and upsert", () => {
+test("temporary records support upsert and deletion without retaining mutations", () => {
   writeRecord("test", "record", { value: 1 });
   writeRecord("test", "record", { value: 2 });
-  closeDatabase();
+  assert.deepEqual(readRecord("test", "record"), { value: 2 });
+  const record = readRecord<{ value: number }>("test", "record")!;
+  record.value = 3;
   assert.deepEqual(readRecord("test", "record"), { value: 2 });
   deleteRecord("test", "record");
   assert.equal(readRecord("test", "record"), null);
+});
+
+test("resetting temporary state clears records and restores default brands", () => {
+  writeRecord("test", "temporary", { value: 1 });
+  deleteRecord("brand", defaultBrands[0].id);
+  resetWorkspace();
+  assert.equal(readRecord("test", "temporary"), null);
+  assert.equal(getBrands().length, defaultBrands.length);
 });
 
 test("no news articles means no sentiment score", () => {
@@ -515,7 +518,7 @@ test("workspace writes reject cross-origin and invalid requests", async () => {
   );
 });
 
-test("actions are persisted, audited, and can be completed", async () => {
+test("temporary actions are audited and can be completed", async () => {
   const response = await workspacePost(
     request({
       action: "create-action",
@@ -544,7 +547,7 @@ test("actions are persisted, audited, and can be completed", async () => {
   assert.ok(getAuditLog().some((entry) => entry.action === "action.created"));
 });
 
-test("brand edits persist without fake source state", async () => {
+test("temporary brand edits work without fake source state", async () => {
   const brand = {
     id: "test-brand",
     name: "Test configured brand",
@@ -570,7 +573,7 @@ test("brand edits persist without fake source state", async () => {
   );
 });
 
-test("scope mutations persist explicit app lists and reject duplicate/default coverage", async () => {
+test("temporary scope mutations retain explicit app lists and reject duplicate/default coverage", async () => {
   const apps = [
     { appId: "123", appName: "Android" },
     { appId: "456", appName: "iOS" },

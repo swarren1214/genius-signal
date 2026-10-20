@@ -10,7 +10,7 @@ import {
   readRecord,
   recordAudit,
   writeRecord,
-} from "@/lib/database";
+} from "@/lib/store";
 import { getPendoAnalytics } from "@/lib/services/pendo-analytics";
 import { getNewsFeed } from "@/lib/data/news";
 import { getDigestState } from "@/lib/services/ai";

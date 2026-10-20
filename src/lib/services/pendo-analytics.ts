@@ -1,5 +1,5 @@
 import { pendoConfig, isPendoConfigured } from "@/lib/config";
-import { readRecord, writeRecord } from "@/lib/database";
+import { readRecord, writeRecord } from "@/lib/store";
 import { pendoAggregate, pendoFetch } from "@/lib/services/pendo";
 import type {
   AnalyticsSnapshot,

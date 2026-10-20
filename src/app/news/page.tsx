@@ -1,6 +1,6 @@
 import { NewsWorkspace } from "@/components/dashboard/news-workspace";
 import { getNewsFeed } from "@/lib/data/news";
-import { getBrands } from "@/lib/database";
+import { getBrands } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 

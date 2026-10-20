@@ -1,6 +1,6 @@
 import { newsConfig, isNewsConfigured } from "@/lib/config";
 import type { BrandSearchStatus, NewsArticle } from "@/lib/types";
-import { getBrands } from "@/lib/database";
+import { getBrands } from "@/lib/store";
 import { createHash } from "node:crypto";
 import Sentiment from "sentiment";
 import { fetchRestaurantRss, type FeedItem } from "@/lib/services/rss";
