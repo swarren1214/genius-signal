@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import { DM_Sans, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
@@ -27,7 +28,9 @@ export const metadata: Metadata = {
     "Market intelligence and product analytics for the Global Payments Genius restaurant vertical.",
 };
 
-export default function RootLayout({ children }: LayoutProps<"/">) {
+export default async function RootLayout({ children }: LayoutProps<"/">) {
+  const requestHeaders = await headers();
+  const isLoginPage = requestHeaders.get("x-signal-login-page") === "1";
   return (
     <html
       lang="en"
@@ -41,30 +44,34 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
           enableSystem={false}
         >
           <TooltipProvider>
-            <SidebarProvider>
-              <AppSidebar />
-              <SidebarInset>
-                <SiteHeader />
-                <main className="flex-1 space-y-6 p-5 sm:p-8">
-                  {children}
-                  <footer className="flex flex-wrap items-center justify-between gap-3 pt-2 font-mono text-[9px] text-muted-foreground">
-                    <span>GENIUS PRODUCT / RESTAURANT VERTICAL</span>
-                    <a
-                      href="https://www.logo.dev"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="transition-colors hover:text-foreground"
-                    >
-                      Logos by Logo.dev
-                    </a>
-                    <span>
-                      Retrieved sources · explicit source health · no synthetic
-                      metrics
-                    </span>
-                  </footer>
-                </main>
-              </SidebarInset>
-            </SidebarProvider>
+            {isLoginPage ? (
+                children
+              ) : (
+                <SidebarProvider>
+                  <AppSidebar />
+                  <SidebarInset>
+                    <SiteHeader />
+                    <main className="flex-1 space-y-6 p-5 sm:p-8">
+                      {children}
+                      <footer className="flex flex-wrap items-center justify-between gap-3 pt-2 font-mono text-[9px] text-muted-foreground">
+                        <span>GENIUS PRODUCT / RESTAURANT VERTICAL</span>
+                        <a
+                          href="https://www.logo.dev"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="transition-colors hover:text-foreground"
+                        >
+                          Logos by Logo.dev
+                        </a>
+                        <span>
+                          Retrieved sources · explicit source health · no synthetic
+                          metrics
+                        </span>
+                      </footer>
+                    </main>
+                  </SidebarInset>
+                </SidebarProvider>
+              )}
           </TooltipProvider>
         </ThemeProvider>
       </body>

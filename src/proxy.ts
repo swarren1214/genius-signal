@@ -1,38 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createHash, timingSafeEqual } from "node:crypto";
+import { AUTH_COOKIE_NAME, isAuthConfigured, verifyAuthSession } from "@/lib/auth";
+
+function continueRequest(request: NextRequest, isLoginPage = false) {
+  const headers = new Headers(request.headers);
+  headers.set("x-signal-login-page", isLoginPage ? "1" : "0");
+  return NextResponse.next({ request: { headers } });
+}
 
 export function proxy(request: NextRequest) {
   if (request.nextUrl.pathname === "/api/ingest") return NextResponse.next();
-  const user = process.env.SIGNAL_AUTH_USER;
-  const password = process.env.SIGNAL_AUTH_PASSWORD;
-  if (!user || !password) {
+  if (request.nextUrl.pathname === "/login")
+    return continueRequest(request, true);
+  if (!isAuthConfigured()) {
     const host = request.headers.get("host") ?? request.nextUrl.host;
     const hostname = new URL(`http://${host}`).hostname;
     if (
       hostname === "localhost" ||
       hostname === "127.0.0.1" ||
       hostname === "[::1]"
-    )
-      return NextResponse.next();
+    ) return continueRequest(request);
     return new NextResponse(
       "Configure SIGNAL_AUTH_USER and SIGNAL_AUTH_PASSWORD before exposing this workspace to a network.",
       { status: 503 },
     );
   }
-  const expected = createHash("sha256")
-    .update(`Basic ${Buffer.from(`${user}:${password}`).toString("base64")}`)
-    .digest();
-  const actual = createHash("sha256")
-    .update(request.headers.get("authorization") ?? "")
-    .digest();
-  if (!timingSafeEqual(expected, actual))
-    return new NextResponse("Authentication required", {
-      status: 401,
-      headers: {
-        "WWW-Authenticate": 'Basic realm="Genius Signal", charset="UTF-8"',
-      },
-    });
-  return NextResponse.next();
+  if (verifyAuthSession(request.cookies.get(AUTH_COOKIE_NAME)?.value))
+    return continueRequest(request);
+  const loginUrl = new URL("/login", request.url);
+  loginUrl.searchParams.set(
+    "next",
+    `${request.nextUrl.pathname}${request.nextUrl.search}`,
+  );
+  return NextResponse.redirect(loginUrl);
 }
 
 export const config = {

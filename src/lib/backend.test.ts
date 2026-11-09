@@ -18,6 +18,12 @@ import { POST as aiPost } from "@/app/api/ai/route";
 import { GET as ingestGet } from "@/app/api/ingest/route";
 import { proxy } from "@/proxy";
 import {
+  AUTH_COOKIE_NAME,
+  createAuthSession,
+  verifyAuthCredentials,
+  verifyAuthSession,
+} from "@/lib/auth";
+import {
   canonicalStoryUrl,
   NEWS_POLICY_VERSION,
   isTimelyNews,
@@ -653,27 +659,36 @@ test("missing AI and scheduler credentials return unavailable, not canned data",
 test("network access is blocked until authentication is configured", () => {
   const oldUser = process.env.SIGNAL_AUTH_USER;
   const oldPassword = process.env.SIGNAL_AUTH_PASSWORD;
-  delete process.env.SIGNAL_AUTH_USER;
-  delete process.env.SIGNAL_AUTH_PASSWORD;
-  assert.equal(proxy(new NextRequest("http://public.test/")).status, 503);
-  assert.equal(proxy(new NextRequest("http://localhost/")).status, 200);
-  process.env.SIGNAL_AUTH_USER = "unit-user";
-  process.env.SIGNAL_AUTH_PASSWORD = "unit-password";
-  assert.equal(proxy(new NextRequest("http://public.test/")).status, 401);
-  assert.equal(
-    proxy(
-      new NextRequest("http://public.test/", {
-        headers: {
-          authorization: `Basic ${Buffer.from("unit-user:unit-password").toString("base64")}`,
-        },
-      }),
-    ).status,
-    200,
-  );
-  if (oldUser === undefined) delete process.env.SIGNAL_AUTH_USER;
-  else process.env.SIGNAL_AUTH_USER = oldUser;
-  if (oldPassword === undefined) delete process.env.SIGNAL_AUTH_PASSWORD;
-  else process.env.SIGNAL_AUTH_PASSWORD = oldPassword;
+  try {
+    delete process.env.SIGNAL_AUTH_USER;
+    delete process.env.SIGNAL_AUTH_PASSWORD;
+    assert.equal(proxy(new NextRequest("http://public.test/")).status, 503);
+    assert.equal(proxy(new NextRequest("http://localhost/")).status, 200);
+    process.env.SIGNAL_AUTH_USER = "unit-user";
+    process.env.SIGNAL_AUTH_PASSWORD = "unit-password";
+    const unauthenticated = proxy(new NextRequest("http://public.test/"));
+    assert.equal(unauthenticated.status, 307);
+    assert.equal(new URL(unauthenticated.headers.get("location")!).pathname, "/login");
+    assert.equal(proxy(new NextRequest("http://public.test/login")).status, 200);
+    assert.equal(verifyAuthCredentials("unit-user", "unit-password"), true);
+    assert.equal(verifyAuthCredentials("unit-user", "wrong-password"), false);
+    const session = createAuthSession();
+    assert.equal(verifyAuthSession(session), true);
+    assert.equal(verifyAuthSession(`${session}x`), false);
+    assert.equal(
+      proxy(
+        new NextRequest("http://public.test/", {
+          headers: { cookie: `${AUTH_COOKIE_NAME}=${session}` },
+        }),
+      ).status,
+      200,
+    );
+  } finally {
+    if (oldUser === undefined) delete process.env.SIGNAL_AUTH_USER;
+    else process.env.SIGNAL_AUTH_USER = oldUser;
+    if (oldPassword === undefined) delete process.env.SIGNAL_AUTH_PASSWORD;
+    else process.env.SIGNAL_AUTH_PASSWORD = oldPassword;
+  }
 });
 
 test("sentiment changes do not mix different news selection policies", () => {

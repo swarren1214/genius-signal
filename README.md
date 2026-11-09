@@ -40,7 +40,7 @@ For scheduled ingestion, configure a strong `CRON_SECRET` and an external schedu
 
 ## Deployment Security
 
-The run scripts bind to `127.0.0.1` by default. Without `SIGNAL_AUTH_USER` and `SIGNAL_AUTH_PASSWORD`, the application also rejects non-local hostnames. With both configured, HTTP Basic authentication protects the workspace. Set authentication before overriding the listener hostname or adding a reverse proxy, and use TLS before exposing it to a network. Write APIs additionally require same-origin requests, validate request bodies, and rate-limit refresh/AI operations. The ingestion endpoint has separate bearer authorization.
+The run scripts bind to `127.0.0.1` by default. Without `SIGNAL_AUTH_USER` and `SIGNAL_AUTH_PASSWORD`, the application also rejects non-local hostnames. With both configured, the application presents a sign-in screen and protects the workspace with an HTTP-only, signed session cookie that expires after eight hours. `SIGNAL_AUTH_SECRET` can be set to a separate strong session-signing secret; if omitted, the configured password is used. Set authentication before overriding the listener hostname or adding a reverse proxy, and use TLS before exposing it to a network. Write APIs additionally require same-origin requests, validate request bodies, and rate-limit refresh/AI operations. The ingestion endpoint has separate bearer authorization.
 
 This is a single-workspace deployment, not an SSO/RBAC system. Individual roles, per-user bookmarks, multi-tenant isolation, durable storage, and distributed job workers are not implemented. Vercel deployments need no database; configure the integration and authentication environment variables before deploying.
 

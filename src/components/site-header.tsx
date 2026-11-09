@@ -1,8 +1,9 @@
 "use client";
 
-import { Sparkles, Search } from "lucide-react";
+import { LogOut, Sparkles, Search } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { signOut } from "@/app/login/actions";
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
@@ -43,6 +44,16 @@ export function SiteHeader() {
 
       <div className="flex shrink-0 items-center gap-1">
         <ThemeToggle />
+        <form action={signOut}>
+          <button
+            type="submit"
+            aria-label="Sign out"
+            title="Sign out"
+            className="signal-button inline-flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-muted hover:text-foreground"
+          >
+            <LogOut className="size-4" />
+          </button>
+        </form>
         <Link
           href="/insights"
           aria-label="Open product insights"

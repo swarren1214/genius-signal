@@ -464,7 +464,7 @@ export function SettingsWorkspace({
       </Card>
       <p className="text-[10px] leading-5 text-muted-foreground">
         {authenticated
-          ? "HTTP authentication is configured for this single-workspace deployment."
+          ? "Workspace sign-in is configured for this single-workspace deployment."
           : "Local access only. Network access is blocked until SIGNAL_AUTH_USER and SIGNAL_AUTH_PASSWORD are configured."}{" "}
         Changes are temporary, reset on restart, and are not shared across server
         instances. Individual user roles are not configured.
